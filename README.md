@@ -7,7 +7,7 @@ Create the empty file "items_position" in the program folder or use the tar pack
 
 Personalizations in the config file.
 
-The trashcan change its icon to reflect its state, empty or not empty. The far right part of the desktop is reserved and exclusive.
+The trashcan change its icon to reflect its state, empty or not empty. The far right part of the desktop is reserved and exclusive. To use a wallpaper, just put an image named wallpaper.jpg at the exactly screen sizes in the program folder.
 
 Needed:
 - python3
