@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-# Version 0.1
+# Version 0.2
 
 from PyQt5.QtCore import (QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
 from PyQt5.QtGui import (QPainterPath,QDrag,QPixmap,QStaticText,QTextOption,QIcon,QStandardItem,QStandardItemModel,QFontMetrics,QColor,QPalette,QClipboard,QPainter,QFont)
 import dbus
-import psutil
 import sys
-from pathlib import PosixPath
 import os
 import stat
 from urllib.parse import unquote, quote
@@ -17,7 +15,6 @@ import datetime
 import glob
 import importlib
 import subprocess
-import pwd
 import threading
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
@@ -124,6 +121,7 @@ mmod_custom = glob.glob("modules_custom/*.py")
 list_custom_modules = []
 for el in reversed(mmod_custom):
     try:
+        # from python 3.4 exec_module instead of import_module
         ee = importlib.import_module(os.path.basename(el)[:-3])
         list_custom_modules.append(ee)
     except ImportError as ioe:
@@ -187,6 +185,7 @@ class MyQlist(QListView):
         super(MyQlist, self).__init__()
         # the list of dragged items
         self.item_idx = []
+    
     
     def startDrag(self, supportedActions):
         item_list = []
@@ -284,6 +283,7 @@ class MyQlist(QListView):
         dest_path = DDIR
         curr_dir = QFileInfo(dest_path)
         if not curr_dir.isWritable():
+            MyDialog("Info", "The current folder is not writable: "+DDIR, None)
             event.ignore()
         #
         if event.mimeData().hasUrls:
@@ -292,6 +292,7 @@ class MyQlist(QListView):
                 #
                 if pointedItem.isValid():
                     ifp = os.path.join(DDIR, pointedItem.data(0))
+                    #
                     if os.path.isdir(ifp):
                         for uurl in event.mimeData().urls():
                             if uurl.toLocalFile() == ifp:
@@ -312,11 +313,48 @@ class MyQlist(QListView):
                     # one item only
                     if len(self.item_idx) == 1:
                         self.dropEvent3(event)
-            # else:
+            else:
                 # event.acceptProposedAction()
+                event.accept()
+                filePathsTemp = []
+                # web address list - not used
+                webPaths = []
+                #
+                for uurl in event.mimeData().urls():
+                    # check if the element is a local file
+                    if uurl.isLocalFile():
+                        filePathsTemp.append(str(uurl.toLocalFile()))
+                    else:
+                        webUrl = uurl.url()
+                        if webUrl[0:5] == "http:" or webUrl[0:6] == "https:":
+                            webPaths.append(webUrl)
+                #
+                filePaths = filePathsTemp
+                # if not empty
+                if filePaths:
+                    pointedItem = self.indexAt(event.pos())
+                    #
+                    if pointedItem.isValid():
+                        ifp = os.path.join(DDIR, pointedItem.data(0))
+                        if os.path.isdir(ifp):
+                            if os.access(ifp, os.W_OK):
+                                PastenMerge(ifp, event.proposedAction(), filePaths, None)
+                            else:
+                                MyDialog("Info", "The following folder in not writable: "+DDIR, None)
+                                return
+                        else:
+                            PastenMerge(dest_path, event.proposedAction(), filePaths, None)
+                    else:
+                        PastenMerge(dest_path, event.proposedAction(), filePaths, None)
+                else:
+                    event.ignore()
+        else:
+            event.ignore()
+    
     
     # Delete
     def trashItem(self, urls):
+        # urls:: [PyQt5.QtCore.QUrl('file:///home/HOME/Desktop/bash-template.sh')]
         if urls:
             list_items = []
             for uurl in urls:
@@ -334,7 +372,6 @@ class MyQlist(QListView):
     # dropEvent - some items have been moved around the desktop
     def dropEvent3(self, event):
         model = self.model()
-        i = 0
         x = int(event.pos().x()/ITEM_WIDTH) * ITEM_WIDTH
         y = int(event.pos().y()/ITEM_HEIGHT) * ITEM_HEIGHT
         self.setPositionForIndex(QPoint(x, y) , self.item_idx[0])
@@ -342,6 +379,9 @@ class MyQlist(QListView):
         with open("items_position", "w") as ff:
             for row in range(model.rowCount()):
                 item_model = model.item(row)
+                # skip the special entries
+                if item_model.data(Qt.UserRole+1) in special_entries:
+                    continue
                 item_name = item_model.data(0)
                 item_rect = self.visualRect(item_model.index())
                 if item_model:
@@ -356,7 +396,7 @@ class MyQlist(QListView):
         dest_path = DDIR
         curr_dir = QFileInfo(dest_path)
         if not curr_dir.isWritable():
-            MyDialog("Info", "The current folder is not writable: "+os.path.basename(dest_path), None)
+            MyDialog("Info", "The current folder is not writable: "+DDIR, None)
             event.ignore()
             return
         if event.mimeData().hasUrls:
@@ -535,15 +575,15 @@ class itemDelegate(QItemDelegate):
     def sizeHint(self, option, index):
         return QSize(ITEM_WIDTH, ICON_SIZE)
         #
-        qstring = index.data(QFileSystemModel.FileNameRole)
-        st = QStaticText(qstring)
-        st.setTextWidth(ITEM_WIDTH)
-        to = QTextOption(Qt.AlignCenter)
-        to.setWrapMode(QTextOption.WrapAnywhere)
-        st.setTextOption(to)
-        ww = st.size().width()
-        hh = st.size().height()
-        return QSize(int(ww), int(hh)+ITEM_HEIGHT)
+        # qstring = index.data(QFileSystemModel.FileNameRole)
+        # st = QStaticText(qstring)
+        # st.setTextWidth(ITEM_WIDTH)
+        # to = QTextOption(Qt.AlignCenter)
+        # to.setWrapMode(QTextOption.WrapAnywhere)
+        # st.setTextOption(to)
+        # ww = st.size().width()
+        # hh = st.size().height()
+        # return QSize(int(ww), int(hh)+ITEM_HEIGHT)
 
 
 class thumbThread(threading.Thread):
@@ -602,6 +642,8 @@ class MainWin(QWidget):
         # number of colomns and rows
         self.num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH) 
         self.num_row = int((WINH-TOP_M-BOTTOM_M)/ITEM_HEIGHT)
+        # reserved cells - items cannot be positioned there
+        self.reserved_cells = [[0, 0]]
         #
         xpad = int((WINW-self.num_col*ITEM_WIDTH)/4)
         ypad = int((WINH-self.num_row*ITEM_HEIGHT)/4)
@@ -640,30 +682,17 @@ class MainWin(QWidget):
         self.static_items = False
         # restore the item position from items_position file
         self.listviewRestore()
-        # restore the item position from items_position file at launch program
         timer = QTimer(self)
         timer.setSingleShot(True)
         timer.timeout.connect(self.listviewRestore2)
         timer.start(200)
+        #
         ### trash can
         self.trash_standartItem = None
         if USE_TRASH:
-            items = []
-            with open("items_position", "r") as ff:
-                items = ff.readlines()
-            #
-            trash_found = 0
-            for iitem in items:
-                if iitem.split("/")[2].strip("\n") == TRASH_NAME:
-                    trash_found = 1
-            if not trash_found:
-                tcol = (self.num_col-1) * ITEM_WIDTH
-                trow = (self.num_row-1) * ITEM_HEIGHT
-                items.append("{}/{}/{}\n".format(tcol, trow, TRASH_NAME))
-                #
-                with open("items_position", "w") as ff:
-                    for iitem in items:
-                        ff.write(iitem)
+            # press the delete key to send to trash the selected items
+            self.clickable2(self.listview).connect(self.itemsToTrash)
+        #
         # check for changes in the application directories
         fPath = [DDIR]
         if USE_TRASH:
@@ -680,10 +709,29 @@ class MainWin(QWidget):
                 new_desktop_list.remove(iitem)
         return new_desktop_list
     
+    # send to trash the selected items
+    def clickable2(self, widget):
+        class Filter(QObject):
+            clicked = pyqtSignal()
+            def eventFilter(self, obj, event):
+                if obj == widget:
+                    if event.type() == QEvent.KeyRelease:
+                        if event.key() == Qt.Key_Delete:
+                            self.clicked.emit()
+                return False
+        #
+        filter = Filter(widget)
+        widget.installEventFilter(filter)
+        return filter.clicked
+    
+    #  send to trash or delete the selected items - function
+    def itemsToTrash(self):
+        if self.selection:
+            self.ftrashAction()
+    
     #
     def singleClick(self, index):
         time.sleep(0.1)
-        #
         path = os.path.join(DDIR, index.data(0))
         file_info = QFileInfo(path)
         #
@@ -786,7 +834,6 @@ class MainWin(QWidget):
     
     # add item
     def addItem(self, new_desktop_list):
-        # item_list = []
         for itd in new_desktop_list:
             if itd not in self.desktop_items:
                 iicon = self.setIcons(os.path.join(DDIR, itd))
@@ -795,10 +842,8 @@ class MainWin(QWidget):
                 item.setData("file", Qt.UserRole + 1)
                 # Add the item to the model
                 self.model.appendRow(item)
-                # item_list.append(item)
                 #
                 self.itemSetPos(item)
-        #
         # restore the position
         self.listviewRestore2()
     
@@ -855,11 +900,14 @@ class MainWin(QWidget):
             iitem_data = iitem.split("/")
             list_pos.append([int(int(iitem_data[0])/ITEM_WIDTH), int(int(iitem_data[1])/ITEM_HEIGHT)])
         # 
-        for cc in range(self.num_col-2):
+        for cc in reversed(range(self.num_col)):
             for rr in range(self.num_row):
                 if [cc, rr] not in list_pos:
-                    cc1 = cc*ITEM_WIDTH #- 1
-                    rr1 = rr*ITEM_HEIGHT #- 1
+                    if [cc, rr] in self.reserved_cells:
+                        continue
+                    #
+                    cc1 = cc*ITEM_WIDTH
+                    rr1 = rr*ITEM_HEIGHT
                     #
                     return [int(cc1), int(rr1)]
     
@@ -869,6 +917,9 @@ class MainWin(QWidget):
         with open("items_position", "w") as ff:
             for row in range(self.model.rowCount()):
                 item_model = self.model.item(row)
+                # skip the special entries
+                if item_model.data(Qt.UserRole+1) in special_entries:
+                    continue
                 item_name = item_model.data(0)
                 item_rect = self.listview.visualRect(item_model.index())
                 if item_model:
@@ -902,26 +953,23 @@ class MainWin(QWidget):
                 item.setData("file", Qt.UserRole + 1)
                 # add the item to the model
                 self.model.appendRow(item)
-                #
                 item_names.append(item_name)
-            elif item_name == TRASH_NAME:
-                tmp = os.listdir(TRASH_PATH)
-                if tmp:
-                    iicon = QIcon.fromTheme("user-trash-full")
-                else:
-                    # user-trash user-trash-full
-                    iicon = QIcon.fromTheme("user-trash")
-                iitem = TRASH_NAME
-                item = QStandardItem(iicon, iitem)
-                item.setData("trash", Qt.UserRole + 1)
-                # Add the item to the model
-                self.model.appendRow(item)
-                self.trash_standartItem = item
             else:
                 # remove no more existent items
                 file_is_changed = 1
                 items_position.remove(iitem)
-        # add new items
+        ### add the trashcan
+        tmp = os.listdir(TRASH_PATH)
+        if tmp:
+            iicon = QIcon.fromTheme("user-trash-full")
+        else:
+            iicon = QIcon.fromTheme("user-trash")
+        iitem = TRASH_NAME
+        item = QStandardItem(iicon, iitem)
+        item.setData("trash", Qt.UserRole + 1)
+        self.model.appendRow(item)
+        self.trash_standartItem = item
+        ### add new items
         for item_name in self.desktop_items:
             if item_name not in item_names:
                 if os.path.exists(os.path.join(DDIR, item_name)):
@@ -938,17 +986,14 @@ class MainWin(QWidget):
                     self.model.appendRow(item)
                     #
                     item_names.append(item_name)
-                    # rebuild the file
-                    if file_is_changed:
-                        with open("items_position", "w") as ff:
-                            for iitem in items_position:
-                                ff.write(iitem)
-                        file_is_changed = 0
         # rebuild the file
         if file_is_changed:
             with open("items_position", "w") as ff:
                 for iitem in items_position:
                     ff.write(iitem)
+            file_is_changed = 0
+        #
+        # self.listview.viewport().update()
     
     
     # restore the item position from items_position file at launch program
@@ -960,6 +1005,15 @@ class MainWin(QWidget):
         for row in range(self.model.rowCount()):
             item_model = self.model.item(row)
             item_name = item_model.data(0)
+            #
+            if item_model:
+                # the trashcan
+                if item_model.data(Qt.UserRole+1) == "trash":
+                    self.listview.setPositionForIndex(QPoint(0, 0), item_model.index())
+                # # the media devices
+                # elif item_model.data(Qt.UserRole+1) == "media":
+                    # pass
+            # normal items
             for iitem in items_position:
                 x, y, i_name = iitem.split("/")
                 if item_model and i_name.strip("\n") == item_name:
@@ -1001,7 +1055,6 @@ class MainWin(QWidget):
                     try:
                         if USE_THUMB == 1:
                             file_icon = self.evaluate_pixbuf(ireal_path, imime.name())
-                            #
                             if file_icon != "Null":
                                 return file_icon
                             else:
@@ -1093,6 +1146,7 @@ class MainWin(QWidget):
             csaf = " padding: 0px;}"
             csa = csaa+csab+csac+csad+csae+csaf
             menu.setStyleSheet(csa)
+            #
             ipath = os.path.join(DDIR, itemName)
             if self.selection != None:
                 if len(self.selection) == 1:
@@ -1386,7 +1440,7 @@ class MainWin(QWidget):
         for iindex in self.selection:
             iname = iindex.data(0)
             iname_fp = os.path.join(DDIR, iname)
-            ## readable or broken link
+            # readable or broken link
             if os.access(iname_fp,os.R_OK) or os.path.islink(iname_fp):
                 iname_quoted = quote(iname, safe='/:?=&')
                 if iindex != self.selection[-1]:
@@ -1579,12 +1633,16 @@ class MainWin(QWidget):
         else:
             return ret
     
-    
+
     def winClose(self):
         global stopCD
         stopCD = 1
         time.sleep(1)
         qApp.quit()
+
+    # def restart(self):
+        # QCoreApplication.quit()
+        # status = QProcess.startDetached(sys.executable, sys.argv)
 
 ################
 
@@ -1762,7 +1820,6 @@ class getAppsByMime():
                         # consinstency - do not crash if the desktop file is malformed
                         try:
                             if mimetype in DesktopEntry(desktopPath).getMimeTypes():
-                                # 
                                 mimeProg2 = DesktopEntry(desktopPath).getExec()
                                 # replace $HOME with home path
                                 if mimeProg2[0:5].upper() == "$HOME":
@@ -2176,40 +2233,6 @@ class propertyDialog(QDialog):
             self.grid1.addWidget(labelAccess, 8, 0, 1, 1, Qt.AlignRight)
             self.labelAccess2 = QLabel()
             self.grid1.addWidget(self.labelAccess2, 8, 1, 1, 4, Qt.AlignLeft)
-            # disc usage
-            num_partitions = len(psutil.disk_partitions())
-            file_mountpoint = ""
-            data_mountpoint = None
-            if num_partitions == 1:
-                data_mountpoint = psutil.disk_partitions()[0]
-                file_mountpoint = data_mountpoint.mountpoint
-            else:
-                for ppart in psutil.disk_partitions():
-                    if ppart.mountpoint == "/":
-                        continue
-                    p_mount_point = ppart.mountpoint+"/"
-                    if self.itemPath[0:len(p_mount_point)] == p_mount_point:
-                        data_mountpoint = ppart
-                        file_mountpoint = ppart.mountpoint
-            if data_mountpoint == None:
-                for ppart in psutil.disk_partitions():
-                    if ppart.mountpoint == "/":
-                        data_mountpoint = ppart
-                        file_mountpoint = "/"
-                        break
-            if file_mountpoint == "/":
-                file_mountpoint = "Root"
-            elif file_mountpoint == "/boot":
-                file_mountpoint = "Boot"
-            elif file_mountpoint == "/home":
-                file_mountpoint = "Home"
-            label_partition = QLabel("<i>Disc {}</i>".format(file_mountpoint))
-            self.grid1.addWidget(label_partition, 9, 0, 1, 1, Qt.AlignRight)
-            label_partition2 = QLabel()
-            disc_size = convert_size(psutil.disk_usage(data_mountpoint.mountpoint).total)
-            disc_used = convert_size(psutil.disk_usage(data_mountpoint.mountpoint).used)
-            label_partition2.setText("{} / {}".format(disc_size, disc_used))
-            self.grid1.addWidget(label_partition2, 9, 1, 1, 4, Qt.AlignLeft)
             ###### tab 2
             page2 = QWidget()
             self.gtab.addTab(page2, "Permissions")
@@ -3722,13 +3745,7 @@ if __name__ == '__main__':
     # from Xlib import X
     # windowID = int(window.winId())
     # _display = Display()
-    # _window = _display.create_resource_object('window', windowID)
-    # x = 0
-    # _window.change_property(_display.intern_atom('_NET_WM_STRUT_PARTIAL'),
-                           # _display.intern_atom('CARDINAL'), 32,
-                           # [0, 0, WINH, 0, 0, 0, 0, 0, x, x+WINW-1, 0, 0],
-                           # X.PropModeReplace)
-    # _display.sync()
+    # this_window = _display.create_resource_object('window', windowID)
     ####
     # L = 0
     # R = 0
@@ -3743,6 +3760,7 @@ if __name__ == '__main__':
                            # # _display.intern_atom('CARDINAL'), 32,
                            # # [L, R, T, B, 0, 0, 0, 0, x, y, T, B],
                            # # X.PropModeReplace)
+    # _display.sync()
     ####
     # from ewmh import EWMH
     # ewmh = EWMH()
