@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.2
+# Version 0.3
 
 from PyQt5.QtCore import (QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -46,6 +46,11 @@ class firstMessage(QWidget):
         qr.moveCenter(cp)
         self.move(qr.topLeft())
 
+#
+if not os.path.exists(os.path.join(os.path.expanduser("~") , USER_DESKTOP)):
+    app = QApplication(sys.argv)
+    fm = firstMessage("Info", "The folder {} doesn't exist.\nCreate one or set a new folder\nin the config file.".format(USER_DESKTOP))
+    sys.exit(app.exec_())
 
 isXDGDATAHOME = 1
 
@@ -150,6 +155,12 @@ WINH = 0
 
 # special entries
 special_entries = ["trash", "media"]
+
+# number of columns and rows
+num_col = 0 
+num_row = 0
+# reserved cells - items cannot be positioned there
+reserved_cells = [[0, 0]]
 
 
 # get the folder size
@@ -270,7 +281,16 @@ class MyQlist(QListView):
     
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:
-            event.accept()
+            ## the number of items to be copied must not exced the empty cells available
+            # cells taken
+            model_entries = self.model().rowCount()
+            # total cells
+            total_cells = num_col * num_row - len(reserved_cells)
+            if model_entries < total_cells:
+                if len(event.mimeData().urls()) < (total_cells-model_entries):
+                    event.accept()
+                else:
+                    event.ignore()
         else:
             event.ignore()
     
@@ -314,7 +334,6 @@ class MyQlist(QListView):
                     if len(self.item_idx) == 1:
                         self.dropEvent3(event)
             else:
-                # event.acceptProposedAction()
                 event.accept()
                 filePathsTemp = []
                 # web address list - not used
@@ -413,7 +432,7 @@ class MyQlist(QListView):
                     webUrl = uurl.url()
                     if webUrl[0:5] == "http:" or webUrl[0:6] == "https:":
                         webPaths.append(webUrl)
-            # TO-DO
+            # 
             if webPaths:
                 MyDialog("Info", "Not supported.", None)
                 event.ignore()
@@ -639,11 +658,11 @@ class MainWin(QWidget):
         #
         self.listview.clicked.connect(self.singleClick)
         self.listview.doubleClicked.connect(self.doubleClick)
-        # number of colomns and rows
-        self.num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH) 
-        self.num_row = int((WINH-TOP_M-BOTTOM_M)/ITEM_HEIGHT)
+        # number of columns and rows
+        self.num_col = num_col
+        self.num_row = num_row
         # reserved cells - items cannot be positioned there
-        self.reserved_cells = [[0, 0]]
+        self.reserved_cells = reserved_cells
         #
         xpad = int((WINW-self.num_col*ITEM_WIDTH)/4)
         ypad = int((WINH-self.num_row*ITEM_HEIGHT)/4)
@@ -794,7 +813,6 @@ class MainWin(QWidget):
                 MyDialog("Error", "No programs found.", self)
         
     
-    
     # some applications has been added or removed
     def directory_changed(self, edir):
         if edir == TRASH_PATH:
@@ -830,6 +848,7 @@ class MainWin(QWidget):
     #
     def lselectionChanged(self):
         self.selection = self.listview.selectionModel().selectedIndexes()
+        self.listview.viewport().update()
     
     
     # add item
@@ -910,6 +929,8 @@ class MainWin(QWidget):
                     rr1 = rr*ITEM_HEIGHT
                     #
                     return [int(cc1), int(rr1)]
+        # no empty cells
+        return [-1,-1]
     
     
     # update the file
@@ -939,8 +960,21 @@ class MainWin(QWidget):
         file_is_changed = 0
         # only item name
         item_names = []
+        # empty cell counter
+        empty_cell_counter = 0
+        # max slot to be used
+        num_slot = self.num_col * self.num_row - len(self.reserved_cells)
+        # some items cannot be added in the view
+        items_skipped = 0
         for iitem in items_position[:]:
             if iitem == "\n":
+                continue
+            # reached the number of empty cells available
+            if empty_cell_counter == num_slot:
+                items_skipped = 1
+                # remove no exedent items
+                file_is_changed = 1
+                items_position.remove(iitem)
                 continue
             x, y, item_name_temp = iitem.split("/")
             item_name = item_name_temp.strip("\n")
@@ -954,6 +988,8 @@ class MainWin(QWidget):
                 # add the item to the model
                 self.model.appendRow(item)
                 item_names.append(item_name)
+                #
+                empty_cell_counter += 1
             else:
                 # remove no more existent items
                 file_is_changed = 1
@@ -970,28 +1006,43 @@ class MainWin(QWidget):
         self.model.appendRow(item)
         self.trash_standartItem = item
         ### add new items
-        for item_name in self.desktop_items:
-            if item_name not in item_names:
-                if os.path.exists(os.path.join(DDIR, item_name)):
-                    # the first empty cell
-                    data = self.itemSetPos2()
-                    file_is_changed = 1
-                    items_position.append("{}/{}/{}\n".format(data[0], data[1], item_name))
-                    ## add the item to the model
-                    iicon = self.setIcons(os.path.join(DDIR, item_name))
-                    item = QStandardItem(iicon, item_name)
-                    # custom data
-                    item.setData("file", Qt.UserRole + 1)
-                    # add the item to the model
-                    self.model.appendRow(item)
-                    #
-                    item_names.append(item_name)
+        if not items_skipped:
+            for item_name in self.desktop_items:
+                # reached the number of empty cells available
+                if empty_cell_counter == num_slot:
+                    items_skipped = 1
+                    break
+                if item_name not in item_names:
+                    if os.path.exists(os.path.join(DDIR, item_name)):
+                        # the first empty cell
+                        data = self.itemSetPos2()
+                        # no more empty cells
+                        if data == [-1,-1]:
+                            items_skipped = 1
+                            break
+                        file_is_changed = 1
+                        items_position.append("{}/{}/{}\n".format(data[0], data[1], item_name))
+                        ## add the item to the model
+                        iicon = self.setIcons(os.path.join(DDIR, item_name))
+                        item = QStandardItem(iicon, item_name)
+                        # custom data
+                        item.setData("file", Qt.UserRole + 1)
+                        # add the item to the model
+                        self.model.appendRow(item)
+                        #
+                        item_names.append(item_name)
+                        #
+                        empty_cell_counter += 1
+        #
         # rebuild the file
         if file_is_changed:
             with open("items_position", "w") as ff:
                 for iitem in items_position:
                     ff.write(iitem)
             file_is_changed = 0
+        # message
+        if items_skipped:
+            MyDialog("Info", "Too many items in the desktop folder to be all placed.", self)
         #
         # self.listview.viewport().update()
     
@@ -1020,7 +1071,6 @@ class MainWin(QWidget):
                     self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
         #
         self.listview.viewport().update()
-
 
     #
     def eventFilter(self, obj, event):
@@ -1055,6 +1105,7 @@ class MainWin(QWidget):
                     try:
                         if USE_THUMB == 1:
                             file_icon = self.evaluate_pixbuf(ireal_path, imime.name())
+                            #
                             if file_icon != "Null":
                                 return file_icon
                             else:
@@ -1140,11 +1191,12 @@ class MainWin(QWidget):
             menu = QMenu("Menu", self.listview)
             csaa = "QMenu { "
             csab = "background: {}".format(QPalette.Window)
-            csac = "; margin: 1px; padding: 5px 5px 2px 5px;}"
+            csac = "; margin: 1px; padding: 5px 5px 5px 5px;}"
             csad = " QMenu::item:selected { "
             csae = "background-color: {};".format(MENU_H_COLOR)
-            csaf = " padding: 0px;}"
-            csa = csaa+csab+csac+csad+csae+csaf
+            csaf = " padding: 10px;}"
+            csag = " QMenu::item:!selected {padding: 2px 15px 2px 10px;}"
+            csa = csaa+csab+csac+csad+csae+csaf+csag
             menu.setStyleSheet(csa)
             #
             ipath = os.path.join(DDIR, itemName)
@@ -1270,8 +1322,9 @@ class MainWin(QWidget):
             csac = "; margin: 1px; padding: 5px 5px 2px 5px;}"
             csad = " QMenu::item:selected { "
             csae = "background-color: {};".format(MENU_H_COLOR)
-            csaf = " padding: 0px;}"
-            csa = csaa+csab+csac+csad+csae+csaf
+            csaf = " padding: 10px;}"
+            csag = " QMenu::item:!selected {padding: 2px 15px 2px 10px;}"
+            csa = csaa+csab+csac+csad+csae+csaf+csag
             menu.setStyleSheet(csa)
             #
             newFolderAction = QAction("New Folder", self)
@@ -1307,7 +1360,7 @@ class MainWin(QWidget):
                             ii += 2
             #
             pasteNmergeAction = QAction("Paste", self)
-            pasteNmergeAction.triggered.connect(lambda d:PastenMerge(DDIR, -3, "", self))
+            pasteNmergeAction.triggered.connect(lambda d:validatePastenMerge(DDIR, -3))
             menu.addAction(pasteNmergeAction)
             #
             menu.addSeparator()
@@ -1334,6 +1387,37 @@ class MainWin(QWidget):
             menu.exec_(self.listview.mapToGlobal(position))
     
     
+    # validate the pasteNMerge action upon the number of empty cells
+    def validatePastenMerge(self, DDIR, ttype):
+        # cells taken
+        model_entries = self.model.rowCount()
+        # total cells
+        total_cells = num_col * num_row - len(reserved_cells)
+        if model_entries < total_cells:
+            # get the number of items to be copied from the clipboard
+            filePaths = []
+            clipboard = QApplication.clipboard()
+            mimeData = clipboard.mimeData(QClipboard.Clipboard)
+            got_quoted_data = []
+            for f in mimeData.formats():
+                if f == "x-special/gnome-copied-files":
+                    data = mimeData.data(f)
+                    got_quoted_data = data.data().decode().split("\n")
+                    got_action = got_quoted_data[0]
+                    if got_action == "copy":
+                        self.action = 1
+                    elif got_action == "cut":
+                        self.action = 2
+                    filePaths = [unquote(x)[7:] for x in got_quoted_data[1:]]
+            #
+            if len(filePaths) < (total_cells-model_entries):
+                PastenMerge(DDIR, ttype, "", self)
+            else:
+                MyDialog("Info", "Too many items to be placed.", self)
+        else:
+            MyDialog("Info", "Too many items to be placed.", self)
+            
+    
     # right click on the Recycle Bin
     def trashSelected(self, position):
         menu = QMenu("Menu", self.listview)
@@ -1342,8 +1426,9 @@ class MainWin(QWidget):
         csac = "; margin: 1px; padding: 5px 5px 2px 5px;}"
         csad = " QMenu::item:selected { "
         csae = "background-color: {};".format(MENU_H_COLOR)
-        csaf = " padding: 0px;}"
-        csa = csaa+csab+csac+csad+csae+csaf
+        csaf = " padding: 10px;}"
+        csag = " QMenu::item:!selected {padding: 2px 10px 2px 10px;}"
+        csa = csaa+csab+csac+csad+csae+csaf+csag
         menu.setStyleSheet(csa)
         #
         openAction = QAction("Open", self)
@@ -3326,57 +3411,6 @@ class copyThread2(QThread):
         # DONE
         self.sig.emit(["mDone", 1, 1, items_skipped])
     
-    
-# Paste and Merge function - utility
-class PastenMerge():
-    
-    def __init__(self, lvDir, action, dlist, window):
-        self.lvDir = lvDir
-        # -3 if not DnD - or 1 or 2
-        self.action = action
-        self.dlist = dlist
-        self.window = window
-        self.fpasteNmergeAction()
-    
-    # make the list of all the item to be copied - find the action
-    def fmakelist(self):
-        filePaths = []
-        #
-        clipboard = QApplication.clipboard()
-        mimeData = clipboard.mimeData(QClipboard.Clipboard)
-        #
-        got_quoted_data = []
-        for f in mimeData.formats():
-            #
-            if f == "x-special/gnome-copied-files":
-                data = mimeData.data(f)
-                got_quoted_data = data.data().decode().split("\n")
-                got_action = got_quoted_data[0]
-                if got_action == "copy":
-                    self.action = 1
-                elif got_action == "cut":
-                    self.action = 2
-                filePaths = [unquote(x)[7:] for x in got_quoted_data[1:]]
-        #
-        return filePaths
-    
-    # paste and merge function
-    def fpasteNmergeAction(self):
-        # copy/paste
-        if self.action == -3:
-            # make the list of the items
-            filePaths = self.fmakelist()
-            if filePaths:
-                # execute the copying copy/cut operations
-                # self.action: 1 copy - 2 cut - 4 make link
-                copyItems2(self.action, filePaths, -4, self.lvDir, self.window)
-        # DnD - 1 copy - 2 cut - 4 link (not supported)
-        elif self.action == 1 or self.action == 2:
-            if self.dlist:
-                # execute the copying copy/cut operations
-                # self.action: 1 copy - 2 cut - 4 make link
-                copyItems2(self.action, self.dlist, -4, self.lvDir, self.window)
-
 
 # dialog - Paste-n-Merge - choose the default action
 # if an item at destination has the same name
@@ -3734,6 +3768,10 @@ if __name__ == '__main__':
     WINW = size.width()+2
     # WINH = 800
     WINH = size.height()+2
+    #
+    # number of columns and rows
+    num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH) 
+    num_row = int((WINH-TOP_M-BOTTOM_M)/ITEM_HEIGHT)
     #
     window = MainWin()
     window.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)
