@@ -5,6 +5,10 @@ Version 0.1 - mainly untested.
 
 Create the empty file "items_position" in the program folder or use the tar packed version.
 
+Personalizations in the config file.
+
+The trashcan change its icon to reflect its state, empty or not empty. The far right part of the desktop is reserved and exclusive.
+
 Needed:
 - python3
 - pyqt5
