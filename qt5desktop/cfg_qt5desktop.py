@@ -41,7 +41,7 @@ TRED=233
 TGREEN=94
 TBLUE=11
 TALPHA=185
-# menu highlight color
+# menu highlight color: "" to use the default style
 MENU_H_COLOR="#DF5E0B"
 # the size of the circle at top-left of each item
 CIRCLE_SIZE=30
