@@ -14,7 +14,7 @@ Needed:
 - pyqt5
 - python3-xdg
 
-For media devices:
+For media devices (option):
 - dbus
 - pyudev
 
