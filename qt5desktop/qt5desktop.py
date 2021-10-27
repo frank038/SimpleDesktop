@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.3.2
+# Version 0.3.3
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -1178,7 +1178,7 @@ class MainWin(QWidget):
         item_names = []
         # empty cell counter
         empty_cell_counter = 0
-        # max slot to be used
+        # max slots to be used
         num_slot = self.num_col * self.num_row - len(self.reserved_cells)
         # some items cannot be added in the view
         items_skipped = 0
@@ -1188,7 +1188,7 @@ class MainWin(QWidget):
             # reached the number of empty cells available
             if empty_cell_counter == num_slot:
                 items_skipped = 1
-                # remove no exedent items
+                # remove excedent items
                 file_is_changed = 1
                 items_position.remove(iitem)
                 continue
@@ -1249,13 +1249,13 @@ class MainWin(QWidget):
                         item_names.append(item_name)
                         #
                         empty_cell_counter += 1
-        #
-        # rebuild the file
-        if file_is_changed:
-            with open("items_position", "w") as ff:
-                for iitem in items_position:
-                    ff.write(iitem)
-            file_is_changed = 0
+                        #
+                        # rebuild the file
+                        if file_is_changed:
+                            with open("items_position", "w") as ff:
+                                for iitem in items_position:
+                                    ff.write(iitem)
+                            file_is_changed = 0
         # message
         if items_skipped:
             MyDialog("Info", "Too many items in the desktop folder to be all placed.", self)
@@ -1291,7 +1291,6 @@ class MainWin(QWidget):
                         self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
         #
         self.listview.viewport().update()
-
 
     #
     def eventFilter(self, obj, event):
