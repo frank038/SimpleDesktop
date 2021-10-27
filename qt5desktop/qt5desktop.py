@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.3
+# Version 0.3.1
 
 from PyQt5.QtCore import (QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -373,7 +373,6 @@ class MyQlist(QListView):
     
     # Delete
     def trashItem(self, urls):
-        # urls:: [PyQt5.QtCore.QUrl('file:///home/HOME/Desktop/bash-template.sh')]
         if urls:
             list_items = []
             for uurl in urls:
@@ -432,7 +431,7 @@ class MyQlist(QListView):
                     webUrl = uurl.url()
                     if webUrl[0:5] == "http:" or webUrl[0:6] == "https:":
                         webPaths.append(webUrl)
-            # 
+            # TO-DO
             if webPaths:
                 MyDialog("Info", "Not supported.", None)
                 event.ignore()
@@ -1071,7 +1070,7 @@ class MainWin(QWidget):
                     self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
         #
         self.listview.viewport().update()
-
+    
     #
     def eventFilter(self, obj, event):
         # select items continuosly without deselecting the others
@@ -1360,7 +1359,7 @@ class MainWin(QWidget):
                             ii += 2
             #
             pasteNmergeAction = QAction("Paste", self)
-            pasteNmergeAction.triggered.connect(lambda d:validatePastenMerge(DDIR, -3))
+            pasteNmergeAction.triggered.connect(lambda d:self.validatePastenMerge(DDIR, -3))
             menu.addAction(pasteNmergeAction)
             #
             menu.addSeparator()
@@ -1394,26 +1393,7 @@ class MainWin(QWidget):
         # total cells
         total_cells = num_col * num_row - len(reserved_cells)
         if model_entries < total_cells:
-            # get the number of items to be copied from the clipboard
-            filePaths = []
-            clipboard = QApplication.clipboard()
-            mimeData = clipboard.mimeData(QClipboard.Clipboard)
-            got_quoted_data = []
-            for f in mimeData.formats():
-                if f == "x-special/gnome-copied-files":
-                    data = mimeData.data(f)
-                    got_quoted_data = data.data().decode().split("\n")
-                    got_action = got_quoted_data[0]
-                    if got_action == "copy":
-                        self.action = 1
-                    elif got_action == "cut":
-                        self.action = 2
-                    filePaths = [unquote(x)[7:] for x in got_quoted_data[1:]]
-            #
-            if len(filePaths) < (total_cells-model_entries):
-                PastenMerge(DDIR, ttype, "", self)
-            else:
-                MyDialog("Info", "Too many items to be placed.", self)
+            PastenMerge(DDIR, ttype, total_cells - model_entries, self)
         else:
             MyDialog("Info", "Too many items to be placed.", self)
             
@@ -2282,7 +2262,6 @@ class propertyDialog(QDialog):
         self.labelSize2 = QLabel()
         self.grid1.addWidget(self.labelSize2, 4, 1, 1, 4, Qt.AlignLeft)
         #
-        # if os.path.islink(self.itemPath) and not os.path.exists(self.itemPath):
         if not os.path.exists(self.itemPath):
             if os.path.islink(self.itemPath):
                 self.labelName2.setText(os.path.basename(self.itemPath), self.size().width()-12)
@@ -2824,6 +2803,10 @@ class PastenMerge():
             # make the list of the items
             filePaths = self.fmakelist()
             if filePaths:
+                if isinstance(self.dlist, int):
+                    if len(filePaths) > self.dlist:
+                        MyDialog("Info", "Too many items.", None)
+                        return
                 # execute the copying copy/cut operations
                 # self.action: 1 copy - 2 cut - 4 make link
                 copyItems2(self.action, filePaths, -4, self.lvDir, self.window)
