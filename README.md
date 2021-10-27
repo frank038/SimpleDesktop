@@ -1,7 +1,7 @@
 # SimpleDesktop
 A simple and lite desktop manager.
 
-Version 0.3.1
+Version 0.3.2
 
 Create the empty file "items_position" in the program folder or use the tar packed version.
 
@@ -13,6 +13,10 @@ Needed:
 - python3
 - pyqt5
 - python3-xdg
+
+For media devices:
+- dbus
+- pyudev
 
 For custom actions (option):
 - 7z
