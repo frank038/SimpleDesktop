@@ -9,6 +9,8 @@ Personalizations in the config file.
 
 The trashcan change its icon to reflect its state, empty or not empty. The Recycle Bin space is reserved and exclusive. To use a wallpaper, just put an image named wallpaper.jpg at the exactly screen sizes in the program folder.
 
+Limitations: only one item at time can change its position on the desktop.
+
 Needed:
 - python3
 - pyqt5
