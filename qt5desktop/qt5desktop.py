@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-# Version 0.3.1
+# Version 0.3.2
 
-from PyQt5.QtCore import (QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
+from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
 from PyQt5.QtGui import (QPainterPath,QDrag,QPixmap,QStaticText,QTextOption,QIcon,QStandardItem,QStandardItemModel,QFontMetrics,QColor,QPalette,QClipboard,QPainter,QFont)
-import dbus
 import sys
 import os
 import stat
@@ -19,6 +18,9 @@ import threading
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
 from cfg_qt5desktop import *
+if USE_MEDIA:
+    import pyudev
+    import dbus
 
 
 class firstMessage(QWidget):
@@ -76,10 +78,6 @@ if USE_THUMB == 1:
         from pythumb import *
     except Exception as E:
         USE_THUMB = 0
-
-LARGETHUMS = 0
-if THUMB_SIZE > ICON_SIZE:
-    LARGETHUMS = 1
 
 #
 if ICON_SIZE > ITEM_WIDTH:
@@ -431,7 +429,7 @@ class MyQlist(QListView):
                     webUrl = uurl.url()
                     if webUrl[0:5] == "http:" or webUrl[0:6] == "https:":
                         webPaths.append(webUrl)
-            # TO-DO
+            # 
             if webPaths:
                 MyDialog("Info", "Not supported.", None)
                 event.ignore()
@@ -477,7 +475,7 @@ class itemDelegate(QItemDelegate):
         #
         item_icon = index.data(1)
         #
-        if not index.data(1).name():
+        if not index.data(1).name() and index.data(Qt.UserRole+1) == "file":
             pixmap = item_icon.pixmap(QSize(THUMB_SIZE, THUMB_SIZE))
         else:
             pixmap = item_icon.pixmap(QSize(ICON_SIZE, ICON_SIZE))
@@ -493,12 +491,10 @@ class itemDelegate(QItemDelegate):
         if index.data(Qt.UserRole+1) == "file":
             if not os.path.isdir(ppath):
                 if not fileInfo.isReadable() or not fileInfo.isWritable():
-                # if not index.data(QFileSystemModel.FilePermissions) & QFile.WriteUser or not index.data(QFileSystemModel.FilePermissions) & QFile.ReadUser:
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
                     painter.drawPixmap(option.rect.x(), option.rect.y()+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
             else:
                 if not fileInfo.isReadable() or not fileInfo.isWritable() or not fileInfo.isExecutable():
-                # if not index.data(QFileSystemModel.FilePermissions) & QFile.WriteUser or not index.data(QFileSystemModel.FilePermissions) & QFile.ReadUser or not index.data(QFileSystemModel.FilePermissions) & QFile.ExeOwner:
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
                     painter.drawPixmap(option.rect.x(), option.rect.y()+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
             #
@@ -510,12 +506,12 @@ class itemDelegate(QItemDelegate):
         # text background colour
         color = QColor(TRED,TGREEN,TBLUE,TALPHA)
         if option.state & QStyle.State_Selected:
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setBrush(QColor(CIRCLE_COLOR))
+            painter.setPen(QColor(CIRCLE_COLOR))
+            painter.drawEllipse(QRect(option.rect.x()+1,option.rect.y()+1,CIRCLE_SIZE,CIRCLE_SIZE))
             # skip trashcan and media
             if index.data(Qt.UserRole+1) == "file":
-                painter.setRenderHint(QPainter.Antialiasing)
-                painter.setBrush(QColor(CIRCLE_COLOR))
-                painter.setPen(QColor(CIRCLE_COLOR))
-                painter.drawEllipse(QRect(option.rect.x()+1,option.rect.y()+1,CIRCLE_SIZE,CIRCLE_SIZE))
                 # tick symbol
                 painter.setPen(QColor(TICK_COLOR))
                 text = '<div style="font-size:{}px">{}</div>'.format(TICK_SIZE, TICK_CHAR)
@@ -543,7 +539,6 @@ class itemDelegate(QItemDelegate):
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
             painter.drawStaticText(option.rect.x(), option.rect.y()+ICON_SIZE+10, st)
-        # if option.state & QStyle.State_MouseOver and not option.state & QStyle.State_Selected:
         elif option.state & QStyle.State_MouseOver:
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
@@ -556,6 +551,12 @@ class itemDelegate(QItemDelegate):
             to = QTextOption(Qt.AlignCenter)
             to.setWrapMode(QTextOption.WrapAnywhere)
             st.setTextOption(to)
+            # text background
+            if TEXT_BACKGROUND:
+                painter.setBrush(QColor(color))
+                painter.setPen(QColor(color))
+                painter.setRenderHint(QPainter.Antialiasing)
+                painter.drawRoundedRect(QRect(option.rect.x(),option.rect.y()+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
@@ -629,7 +630,7 @@ class thumbThread(threading.Thread):
 ########################### MAIN WINDOW ############################
 # 1
 class MainWin(QWidget):
-    
+    media_signal = pyqtSignal(str,str,str,str)
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
         #
@@ -717,7 +718,216 @@ class MainWin(QWidget):
             fPath.append(TRASH_PATH)
         fileSystemWatcher = QFileSystemWatcher(fPath, self)
         fileSystemWatcher.directoryChanged.connect(self.directory_changed)
+        #
+        # [[QPos], device]
+        self.media_added = []
+        if USE_MEDIA:
+            self.context = pyudev.Context()
+            monitor = pyudev.Monitor.from_netlink(self.context)
+            monitor.filter_by('block')
+            self.observer = pyudev.MonitorObserver(monitor, self.mediaEvent)
+            self.observer.daemon
+            self.observer.start()
+            # observer.stop()
+            #
+            self.bus = dbus.SystemBus()
+            #
+            self.media_signal.connect(self.signal_media)
+            # the devices at program launch
+            self.on_media_detected()
+    
+    
+    ######################### devices ########################
+    #
+    def on_media_detected(self):
+        for device in self.context.list_devices(subsystem='block', DEVTYPE='partition'):
+            mountpoint = self.get_device_mountpoint(device.device_node)
+            if mountpoint in ["/", "/boot", "/home"]:
+                continue
+            #
+            if device.get('ID_FS_LABEL'):
+                name = device.get('ID_FS_TYPE')
+            elif device.get('ID_MODEL'):
+                name = device.get('ID_MODEL')
+            else:
+                name = device
+            # disk - etc.
+            ttype = device.get('ID_TYPE')
+            #
+            self.addMedia(device.device_node, name, ttype)
+    
+    
+    #
+    def mediaEvent(self, action, device):
+        if action == "add":
+            if 'DEVTYPE' in device.properties:
+                if device.get('DEVTYPE') == "partition":
+                    ddevice = device.device_node
+                    #
+                    if device.get('ID_FS_LABEL'):
+                        name = device.get('ID_FS_TYPE')
+                    elif device.get('ID_MODEL'):
+                        name = device.get('ID_MODEL')
+                    else:
+                        name = ddevice
+                    # disk - etc.
+                    ttype = device.get('ID_TYPE')
+                    #
+                    self.media_signal.emit(action, ddevice, name, ttype)
+        elif action == "remove":
+            ddevice = device.device_node
+            self.media_signal.emit(action, ddevice, "", "")
+    
+    #
+    def signal_media(self, action, ddevice, name, ttype):
+        if action == "add":
+            self.addMedia(ddevice, name, ttype)
+        elif action == "remove":
+            self.removeMedia(ddevice)
+    
+    # add the device into the model and view
+    def addMedia(self, ddevice, name, ttype):
+        time.sleep(2)
+        # the first empty cell
+        data = self.itemSetPos2()
+        #
+        if data == [-1,-1]:
+            MyDialog("Info", "Cannot add media.", self)
+            return
+        #
+        if ttype == "disk":
+            iicon = QIcon("icons/drive-harddisk.svg")
+        elif ttype == "optical":
+            iicon = QIcon("icons/media-optical.svg")
+        else:
+            iicon = QIcon("icons/drive-harddisk.svg")
+        iitem = name
+        item = QStandardItem(iicon, iitem)
+        item.setData("media", Qt.UserRole+1)
+        item.setData(ddevice, Qt.UserRole+2)
+        self.model.appendRow(item)
+        # set the position
+        self.itemSetPos(item)
+        # restore the positions
+        self.listviewRestore2()
+    
+    
+    # remove the device from the model and view
+    def removeMedia(self, ddevice):
+        time.sleep(2)
+        for row in range(self.model.rowCount()):
+            iitem = self.model.item(row)
+            if iitem.data(Qt.UserRole+1) == "media":
+                if iitem.data(Qt.UserRole+2) == ddevice:
+                    item_idx = None
+                    for mm in range(len(self.media_added)):
+                        if self.media_added[mm][1].data(Qt.UserRole+2) == ddevice:
+                            iitem_idx = mm
+                    ret = self.model.removeRow(row)
+                    # True if removed
+                    if ret:
+                        # remove the device from the list
+                        del self.media_added[mm]
+                        # restore the positions
+                        self.listviewRestore2()
+    
+    
+    # get the device mount point
+    def get_device_mountpoint(self, ddevice):
+        ddev = ddevice.split("/")[-1]
+        mount_point = self.on_get_mounted(ddev)
+        return mount_point
+        
+    # get the mount point or return N
+    def on_get_mounted(self, ddev):
+        path = os.path.join('/org/freedesktop/UDisks2/block_devices/', ddev)
+        bd = self.bus.get_object('org.freedesktop.UDisks2', path)
+        try:
+            mountpoint = bd.Get('org.freedesktop.UDisks2.Filesystem', 'MountPoints', dbus_interface='org.freedesktop.DBus.Properties')
+            if mountpoint:
+                mountpoint = bytearray(mountpoint[0]).replace(b'\x00', b'').decode('utf-8')
+                return mountpoint
+            else:
+                return "N"
+        except:
+            return "N"
+    
+    
+    # mount - unmount the device
+    def mount_device(self, mountpoint, ddevice):
+        if mountpoint == "N":
+            ret = self.on_mount_device(ddevice, 'Mount')
+            if ret == -1:
+                MyDialog("Info", "The device cannot be mounted.", self)
+                return 
+        else:
+            ret = self.on_mount_device(ddevice, 'Unmount')
+            if ret == -1:
+                MyDialog("Info", "The device cannot be unmounted.", self)
+                return
+        #
+        return ret
+    
+    # self.mount_device
+    def on_mount_device(self, ddevice, operation):
+        ddev = ddevice.split("/")[-1]
+        progname = 'org.freedesktop.UDisks2'
+        objpath = os.path.join('/org/freedesktop/UDisks2/block_devices', ddev)
+        intfname = 'org.freedesktop.UDisks2.Filesystem'
+        try:
+            obj  = self.bus.get_object(progname, objpath)
+            intf = dbus.Interface(obj, intfname)
+            # return the mount point or None if unmount
+            ret = intf.get_dbus_method(operation, dbus_interface='org.freedesktop.UDisks2.Filesystem')([])
+            return ret
+        except:
+            return -1
 
+
+    #
+    def eject_media(self, index):
+        ddevice = index.data(Qt.UserRole+2)
+        mountpoint = self.get_device_mountpoint(ddevice)
+        self.eject_media1(mountpoint, ddevice, index)
+    
+    # self.eject_media
+    def eject_media1(self, mountpoint, ddevice, index):
+        # first unmount if the case
+        if mountpoint != "N":
+            ret = self.mount_device(mountpoint, ddevice)
+            if ret == -1:
+                MyDialog("Info", "Device busy.", self)
+                return
+        # 
+        k = "/org/freedesktop/UDisks2/block_devices/"+ddevice.split("/")[-1]
+        bd = self.bus.get_object('org.freedesktop.UDisks2', k)
+        ddrive = bd.Get('org.freedesktop.UDisks2.Block', 'Drive', dbus_interface='org.freedesktop.DBus.Properties')
+        #
+        ret = self.on_eject(ddrive)
+        if ret == -1:
+            MyDialog("Error", "The device cannot be ejected.", self)
+            return
+        # remove the index from the model
+        self.model.removeRow(index.row())
+        # restore the positions
+        self.listviewRestore2()
+        
+    # self.eject_media1
+    def on_eject(self, ddrive):
+        progname = 'org.freedesktop.UDisks2'
+        objpath  = ddrive
+        intfname = 'org.freedesktop.UDisks2.Drive'
+        try:
+            bus = dbus.SystemBus()
+            methname = 'Eject'
+            obj  = bus.get_object(progname, objpath)
+            intf = dbus.Interface(obj, intfname)
+            ret = intf.get_dbus_method(methname, dbus_interface='org.freedesktop.UDisks2.Drive')([])
+            return ret
+        except:
+            return -1
+            
+    ####################### devices end #######################
     
     # get the items in the desktop directory
     def desktopItems(self):
@@ -767,6 +977,7 @@ class MainWin(QWidget):
             return
         # the media devices
         elif index.data(Qt.UserRole+1) == "media":
+            self.fopenMediaAction(index)
             return
         #
         path = os.path.join(DDIR, index.data(0))
@@ -884,7 +1095,7 @@ class MainWin(QWidget):
         with open("items_position", "r") as ff:
             items_position = ff.readlines()
         for iitem in items_position[:]:
-            if iitem.split("/")[2].strip("\n") in item_name_removed:
+            if iitem.split("/")[-1].strip("\n") in item_name_removed:
                 items_position.remove(iitem)
         # update the file
         with open("items_position", "w") as ff:
@@ -898,7 +1109,13 @@ class MainWin(QWidget):
     def itemSetPos(self, item):
         data = self.itemSetPos2()
         self.listview.setPositionForIndex(QPoint(data[0], data[1]), item.index())
-        # update the file
+        # update the file - skip the special entries
+        if item.data(Qt.UserRole+1) in special_entries:
+            # udpate the media list
+            if item.data(Qt.UserRole+1) == "media":
+                self.media_added.append([data, item])
+            return
+        #
         with open("items_position", "a") as ff:
             iitem = "{}/{}/{}\n".format(data[0], data[1], item.data(0))
             ff.write(iitem)
@@ -1046,7 +1263,7 @@ class MainWin(QWidget):
         # self.listview.viewport().update()
     
     
-    # restore the item position from items_position file at launch program
+    # restore the item position from the items_position file
     def listviewRestore2(self):
         items_position = []
         with open("items_position", "r") as ff:
@@ -1060,17 +1277,22 @@ class MainWin(QWidget):
                 # the trashcan
                 if item_model.data(Qt.UserRole+1) == "trash":
                     self.listview.setPositionForIndex(QPoint(0, 0), item_model.index())
-                # # the media devices
-                # elif item_model.data(Qt.UserRole+1) == "media":
-                    # pass
-            # normal items
-            for iitem in items_position:
-                x, y, i_name = iitem.split("/")
-                if item_model and i_name.strip("\n") == item_name:
-                    self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
+                # the media devices
+                elif item_model.data(Qt.UserRole+1) == "media":
+                    for mmedia in self.media_added:
+                        if mmedia[1].data(0) == item_model.data(0):
+                            x = mmedia[0][0]
+                            y = mmedia[0][1]
+                            self.listview.setPositionForIndex(QPoint(x, y), item_model.index())
+                # normal items
+                for iitem in items_position:
+                    x, y, i_name = iitem.split("/")
+                    if i_name.strip("\n") == item_name:
+                        self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
         #
         self.listview.viewport().update()
-    
+
+
     #
     def eventFilter(self, obj, event):
         # select items continuosly without deselecting the others
@@ -1153,10 +1375,7 @@ class MainWin(QWidget):
         #
         file_icon = "Null"
         if hmd5 != "Null":
-            if LARGETHUMS:
-                file_icon = QIcon(QPixmap(XDG_CACHE_LARGE+"/"+str(hmd5)+".png"))
-            else:
-                file_icon = QIcon(QPixmap(XDG_CACHE_LARGE+"/"+str(hmd5)+".png"))
+            file_icon = QIcon(QPixmap(XDG_CACHE_LARGE+"/"+str(hmd5)+".png"))
         #
         return file_icon
         
@@ -1168,6 +1387,9 @@ class MainWin(QWidget):
         # the special entries
         if pointedItem.data(Qt.UserRole+1) == "trash":
             self.trashSelected(position)
+            return
+        elif pointedItem.data(Qt.UserRole+1) == "media":
+            self.mediaSelected(position)
             return
         vr = self.listview.visualRect(pointedItem)
         pointedItem2 = self.listview.indexAt(QPoint(vr.x(),vr.y()))
@@ -1441,6 +1663,56 @@ class MainWin(QWidget):
             if ret == -1:
                 MyDialog("ERROR", "Error with some files in the Recycle Bin.\nTry to remove them manually.", self)
     
+    
+    # media devices menu
+    def mediaSelected(self, position):
+        pointedItem = self.listview.indexAt(position)
+        menu = QMenu("Menu", self.listview)
+        csaa = "QMenu { "
+        csab = "background: {}".format(QPalette.Window)
+        csac = "; margin: 1px; padding: 5px 5px 2px 5px;}"
+        csad = " QMenu::item:selected { "
+        csae = "background-color: {};".format(MENU_H_COLOR)
+        csaf = " padding: 10px;}"
+        csag = " QMenu::item:!selected {padding: 2px 10px 2px 10px;}"
+        csa = csaa+csab+csac+csad+csae+csaf+csag
+        menu.setStyleSheet(csa)
+        #
+        openAction = QAction("Open", self)
+        openAction.triggered.connect(lambda:self.fopenMediaAction(pointedItem))
+        menu.addAction(openAction)
+        ejectAction = QAction("Eject", self)
+        ejectAction.triggered.connect(lambda:self.fejectMediaAction(pointedItem))
+        menu.addAction(ejectAction)
+        #
+        menu.exec_(self.listview.mapToGlobal(position))
+    
+    # self.mediaSelected - double click
+    def fopenMediaAction(self, pointedItem):
+        ddevice = pointedItem.data(Qt.UserRole+2)
+        mountpoint = self.get_device_mountpoint(ddevice)
+        ret = self.mount_device(mountpoint, ddevice)
+        # ret is the mount point
+        if ret:
+            self.openMedia(ret)
+    
+    # self.fopenMediaAction
+    def openMedia(self, path):
+        if os.access(path, os.R_OK):
+            try:
+                defApp = getDefaultApp(path, self).defaultApplication()
+                if defApp != "None":
+                    subprocess.Popen([defApp, path])
+                else:
+                    MyDialog("Error", "No programs found.", self)
+            except Exception as E:
+                MyDialog("ERROR", str(E), self)
+        else:
+            MyDialog("ERROR", path+"\n\n   Not readable", self)
+    
+    # self.mediaSelected
+    def fejectMediaAction(self, index):
+        self.eject_media(index)
     
     # 
     def ficustomAction(self, el, menuType):
