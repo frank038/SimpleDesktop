@@ -81,6 +81,8 @@ THEME_STYLE=""
 # use background colour in the listview widgets: 0 no - 1 yes
 USE_BACKGROUND_COLOUR=0
 BACKGROUND_COLOR="#878787"
+# show the exit button: 0 no - 1 yes
+SHOW_EXIT=1
 ### needed by pythumb
 # use thumbnailer in the home dir only: 0 no - 1 yes
 USE_THUMB_HOME_ONLY=1
