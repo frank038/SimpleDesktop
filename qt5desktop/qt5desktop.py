@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.3.5
+# Version 0.3.6
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -749,26 +749,28 @@ class MainWin(QWidget):
     ######################### devices ########################
     # the devices at program launch
     def on_media_detected(self):
-        for device in self.context.list_devices(subsystem='block', DEVTYPE='partition'):
-            mountpoint = self.get_device_mountpoint(device.device_node)
-            if mountpoint in ["/", "/boot", "/home"]:
-                continue
-            #
-            if device.get('ID_FS_LABEL'):
-                name = device.get('ID_FS_LABEL')
-            elif device.get('ID_MODEL'):
-                name = device.get('ID_MODEL')
-            else:
-                name = device
-            # disk - etc.
-            if device.get('ID_DRIVE_FLASH_MS') == 1:
-                ttype = "flash-ms"
-            elif device.get('ID_DRIVE_THUMB') == 1:
-                ttype = "thumb"
-            else:
-                ttype = device.get('ID_TYPE')
-            #
-            self.addMedia(device.device_node, name, ttype)
+        for device in self.context.list_devices(subsystem='block'):
+            if 'DEVTYPE' in device.properties:
+                if device.get('ID_FS_USAGE') == "filesystem":
+                    mountpoint = self.get_device_mountpoint(device.device_node)
+                    if mountpoint in ["/", "/boot", "/home"]:
+                        continue
+                    #
+                    if device.get('ID_FS_LABEL'):
+                        name = device.get('ID_FS_LABEL')
+                    elif device.get('ID_MODEL'):
+                        name = device.get('ID_MODEL')
+                    else:
+                        name = device
+                    # disk - etc.
+                    if device.get('ID_DRIVE_FLASH_MS') == "1":
+                        ttype = "flash-ms"
+                    elif device.get('ID_DRIVE_THUMB') == "1":
+                        ttype = "thumb"
+                    else:
+                        ttype = device.get('ID_TYPE')
+                    #
+                    self.addMedia(device.device_node, name, ttype)
     
     
     #
@@ -785,9 +787,9 @@ class MainWin(QWidget):
                     else:
                         name = ddevice
                     # disk - etc.
-                    if device.get('ID_DRIVE_FLASH_MS') == 1:
+                    if device.get('ID_DRIVE_FLASH_MS') == "1":
                         ttype = "flash-ms"
-                    elif device.get('ID_DRIVE_THUMB') == 1:
+                    elif device.get('ID_DRIVE_THUMB') == "1":
                         ttype = "thumb"
                     else:
                         ttype = device.get('ID_TYPE')
@@ -817,7 +819,7 @@ class MainWin(QWidget):
         if ttype == "flash-ms":
             iicon = QIcon("icons/media-flash.svg")
         elif ttype == "thumb":
-            iicon = QIcon("icons/drive-harddisk.svg")
+            iicon = QIcon("icons/drive-thumb.svg")
         elif ttype == "disk":
             iicon = QIcon("icons/drive-harddisk.svg")
         elif ttype == "cd":
