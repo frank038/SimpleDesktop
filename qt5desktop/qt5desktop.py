@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.3.3.1
+# Version 0.3.4
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -21,6 +21,7 @@ from cfg_qt5desktop import *
 if USE_MEDIA:
     import pyudev
     import dbus
+#import psutil
 
 
 class firstMessage(QWidget):
@@ -429,7 +430,7 @@ class MyQlist(QListView):
                     webUrl = uurl.url()
                     if webUrl[0:5] == "http:" or webUrl[0:6] == "https:":
                         webPaths.append(webUrl)
-            # 
+            # TO-DO
             if webPaths:
                 MyDialog("Info", "Not supported.", None)
                 event.ignore()
@@ -467,7 +468,6 @@ class itemDelegate(QItemDelegate):
     def paint(self, painter, option, index):
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
-        # painter.setRenderHint(QPainter.HighQualityAntialiasing)
         iicon = index.data(1)
         ppath = os.path.join(DDIR, index.data(0))
         #
@@ -696,7 +696,16 @@ class MainWin(QWidget):
         if USE_THUMB == 1:
             thread = thumbThread(DDIR, self.listview)
             thread.start()
-        #
+        # menu style
+        if MENU_H_COLOR:
+            csaa = "QMenu { "
+            csab = "background: {}".format(QPalette.Window)
+            csac = "; margin: 1px; padding: 5px 5px 5px 5px;}"
+            csad = " QMenu::item:selected { "
+            csae = "background-color: {};".format(MENU_H_COLOR)
+            csaf = " padding: 10px;}"
+            csag = " QMenu::item:!selected {padding: 2px 15px 2px 10px;}"
+            self.csa = csaa+csab+csac+csad+csae+csaf+csag
         # item are added in the selected item list if clicked at its top-left position
         self.static_items = False
         # restore the item position from items_position file
@@ -728,7 +737,6 @@ class MainWin(QWidget):
             self.observer = pyudev.MonitorObserver(monitor, self.mediaEvent)
             self.observer.daemon
             self.observer.start()
-            # observer.stop()
             #
             self.bus = dbus.SystemBus()
             #
@@ -1268,6 +1276,8 @@ class MainWin(QWidget):
         items_position = []
         with open("items_position", "r") as ff:
             items_position = ff.readlines()
+        # some items has been repositioned
+        items_changed = 0
         #
         for row in range(self.model.rowCount()):
             item_model = self.model.item(row)
@@ -1287,8 +1297,20 @@ class MainWin(QWidget):
                 # normal items
                 for iitem in items_position:
                     x, y, i_name = iitem.split("/")
+                    # repositioning if excede the screen limits
+                    max_width = (num_col-1)*ITEM_WIDTH
+                    max_height = (num_row-1)*ITEM_HEIGHT
+                    if int(x) > max_width or int(y) > max_height:
+                        data = self.itemSetPos2()
+                        items_changed = 1
+                        x = data[0]
+                        y = data[1]
+                    #
                     if i_name.strip("\n") == item_name:
                         self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
+        # rebuild the file
+        if items_changed:
+            self.fitems_desktop()
         #
         self.listview.viewport().update()
 
@@ -1409,15 +1431,8 @@ class MainWin(QWidget):
             #
             itemName = pointedItem.data(0)
             menu = QMenu("Menu", self.listview)
-            csaa = "QMenu { "
-            csab = "background: {}".format(QPalette.Window)
-            csac = "; margin: 1px; padding: 5px 5px 5px 5px;}"
-            csad = " QMenu::item:selected { "
-            csae = "background-color: {};".format(MENU_H_COLOR)
-            csaf = " padding: 10px;}"
-            csag = " QMenu::item:!selected {padding: 2px 15px 2px 10px;}"
-            csa = csaa+csab+csac+csad+csae+csaf+csag
-            menu.setStyleSheet(csa)
+            if MENU_H_COLOR:
+                menu.setStyleSheet(self.csa)
             #
             ipath = os.path.join(DDIR, itemName)
             if self.selection != None:
@@ -1537,15 +1552,8 @@ class MainWin(QWidget):
         else:
             self.listview.clearSelection()
             menu = QMenu("Menu", self.listview)
-            csaa = "QMenu { "
-            csab = "background: {}".format(QPalette.Window)
-            csac = "; margin: 1px; padding: 5px 5px 2px 5px;}"
-            csad = " QMenu::item:selected { "
-            csae = "background-color: {};".format(MENU_H_COLOR)
-            csaf = " padding: 10px;}"
-            csag = " QMenu::item:!selected {padding: 2px 15px 2px 10px;}"
-            csa = csaa+csab+csac+csad+csae+csaf+csag
-            menu.setStyleSheet(csa)
+            if MENU_H_COLOR:
+                menu.setStyleSheet(self.csa)
             #
             newFolderAction = QAction("New Folder", self)
             newFolderAction.triggered.connect(self.fnewFolderAction)
@@ -1600,9 +1608,10 @@ class MainWin(QWidget):
                     subm_customAction.addAction(paction)
                     ii += 2
             #
-            exitAction = QAction("Exit", self)
-            exitAction.triggered.connect(self.winClose)
-            menu.addAction(exitAction)
+            if SHOW_EXIT:
+                exitAction = QAction("Exit", self)
+                exitAction.triggered.connect(self.winClose)
+                menu.addAction(exitAction)
             #
             menu.exec_(self.listview.mapToGlobal(position))
     
@@ -1622,15 +1631,8 @@ class MainWin(QWidget):
     # right click on the Recycle Bin
     def trashSelected(self, position):
         menu = QMenu("Menu", self.listview)
-        csaa = "QMenu { "
-        csab = "background: {}".format(QPalette.Window)
-        csac = "; margin: 1px; padding: 5px 5px 2px 5px;}"
-        csad = " QMenu::item:selected { "
-        csae = "background-color: {};".format(MENU_H_COLOR)
-        csaf = " padding: 10px;}"
-        csag = " QMenu::item:!selected {padding: 2px 10px 2px 10px;}"
-        csa = csaa+csab+csac+csad+csae+csaf+csag
-        menu.setStyleSheet(csa)
+        if MENU_H_COLOR:
+            menu.setStyleSheet(self.csa)
         #
         openAction = QAction("Open", self)
         openAction.triggered.connect(self.fopenTrashAction)
@@ -1667,15 +1669,8 @@ class MainWin(QWidget):
     def mediaSelected(self, position):
         pointedItem = self.listview.indexAt(position)
         menu = QMenu("Menu", self.listview)
-        csaa = "QMenu { "
-        csab = "background: {}".format(QPalette.Window)
-        csac = "; margin: 1px; padding: 5px 5px 2px 5px;}"
-        csad = " QMenu::item:selected { "
-        csae = "background-color: {};".format(MENU_H_COLOR)
-        csaf = " padding: 10px;}"
-        csag = " QMenu::item:!selected {padding: 2px 10px 2px 10px;}"
-        csa = csaa+csab+csac+csad+csae+csaf+csag
-        menu.setStyleSheet(csa)
+        if MENU_H_COLOR:
+            menu.setStyleSheet(self.csa)
         #
         openAction = QAction("Open", self)
         openAction.triggered.connect(lambda:self.fopenMediaAction(pointedItem))
