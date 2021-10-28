@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.3.4
+# Version 0.3.5
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -737,6 +737,7 @@ class MainWin(QWidget):
             self.observer = pyudev.MonitorObserver(monitor, self.mediaEvent)
             self.observer.daemon
             self.observer.start()
+            # observer.stop()
             #
             self.bus = dbus.SystemBus()
             #
@@ -746,7 +747,7 @@ class MainWin(QWidget):
     
     
     ######################### devices ########################
-    #
+    # the devices at program launch
     def on_media_detected(self):
         for device in self.context.list_devices(subsystem='block', DEVTYPE='partition'):
             mountpoint = self.get_device_mountpoint(device.device_node)
@@ -754,13 +755,18 @@ class MainWin(QWidget):
                 continue
             #
             if device.get('ID_FS_LABEL'):
-                name = device.get('ID_FS_TYPE')
+                name = device.get('ID_FS_LABEL')
             elif device.get('ID_MODEL'):
                 name = device.get('ID_MODEL')
             else:
                 name = device
             # disk - etc.
-            ttype = device.get('ID_TYPE')
+            if device.get('ID_DRIVE_FLASH_MS') == 1:
+                ttype = "flash-ms"
+            elif device.get('ID_DRIVE_THUMB') == 1:
+                ttype = "thumb"
+            else:
+                ttype = device.get('ID_TYPE')
             #
             self.addMedia(device.device_node, name, ttype)
     
@@ -769,17 +775,22 @@ class MainWin(QWidget):
     def mediaEvent(self, action, device):
         if action == "add":
             if 'DEVTYPE' in device.properties:
-                if device.get('DEVTYPE') == "partition":
+                if device.get('ID_FS_USAGE') == "filesystem":
                     ddevice = device.device_node
                     #
                     if device.get('ID_FS_LABEL'):
-                        name = device.get('ID_FS_TYPE')
+                        name = device.get('ID_FS_LABEL')
                     elif device.get('ID_MODEL'):
                         name = device.get('ID_MODEL')
                     else:
                         name = ddevice
                     # disk - etc.
-                    ttype = device.get('ID_TYPE')
+                    if device.get('ID_DRIVE_FLASH_MS') == 1:
+                        ttype = "flash-ms"
+                    elif device.get('ID_DRIVE_THUMB') == 1:
+                        ttype = "thumb"
+                    else:
+                        ttype = device.get('ID_TYPE')
                     #
                     self.media_signal.emit(action, ddevice, name, ttype)
         elif action == "remove":
@@ -803,7 +814,11 @@ class MainWin(QWidget):
             MyDialog("Info", "Cannot add media.", self)
             return
         #
-        if ttype == "disk":
+        if ttype == "flash-ms":
+            iicon = QIcon("icons/media-flash.svg")
+        elif ttype == "thumb":
+            iicon = QIcon("icons/drive-harddisk.svg")
+        elif ttype == "disk":
             iicon = QIcon("icons/drive-harddisk.svg")
         elif ttype == "cd":
             iicon = QIcon("icons/media-optical.svg")
@@ -892,7 +907,7 @@ class MainWin(QWidget):
             return -1
 
 
-    #
+    # eject the media
     def eject_media(self, index):
         ddevice = index.data(Qt.UserRole+2)
         mountpoint = self.get_device_mountpoint(ddevice)
@@ -915,10 +930,7 @@ class MainWin(QWidget):
         if ret == -1:
             MyDialog("Error", "The device cannot be ejected.", self)
             return
-        # remove the index from the model
-        self.model.removeRow(index.row())
-        # restore the positions
-        self.listviewRestore2()
+
         
     # self.eject_media1
     def on_eject(self, ddrive):
@@ -1313,6 +1325,7 @@ class MainWin(QWidget):
             self.fitems_desktop()
         #
         self.listview.viewport().update()
+
 
     #
     def eventFilter(self, obj, event):
