@@ -797,7 +797,7 @@ class MainWin(QWidget):
         #
         if ttype == "disk":
             iicon = QIcon("icons/drive-harddisk.svg")
-        elif ttype == "optical":
+        elif ttype == "cd":
             iicon = QIcon("icons/media-optical.svg")
         else:
             iicon = QIcon("icons/drive-harddisk.svg")
