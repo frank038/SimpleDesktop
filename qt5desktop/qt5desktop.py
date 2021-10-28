@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.3.6
+# Version 0.3.8
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -1165,8 +1165,16 @@ class MainWin(QWidget):
                     #
                     cc1 = cc*ITEM_WIDTH
                     rr1 = rr*ITEM_HEIGHT
-                    #
-                    return [int(cc1), int(rr1)]
+                    # 
+                    if self.media_added:
+                        for mmedia in self.media_added:
+                            if [cc1, rr1] == mmedia[0]:
+                                break
+                            else:
+                                return [int(cc1), int(rr1)]
+                    else:
+                        return [int(cc1), int(rr1)]
+                    continue
         # no empty cells
         return [-1,-1]
     
@@ -1328,7 +1336,7 @@ class MainWin(QWidget):
         #
         self.listview.viewport().update()
 
-
+    
     #
     def eventFilter(self, obj, event):
         # select items continuosly without deselecting the others
