@@ -18,7 +18,6 @@ def mmodule_name():
 # action type
 def mmodule_type(listview):
     if listview.selectedIndexes():
-        print(listview.selectedIndexes())
         index = listview.selectedIndexes()[0]
         path = os.path.join(os.path.expanduser("~"), "Desktop", index.data(0))
         if os.path.isfile(path) and not os.path.islink(path):
