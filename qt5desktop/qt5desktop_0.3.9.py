@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.4.0
+# Version 0.3.9
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -153,12 +153,12 @@ WINW = 0
 WINH = 0
 
 # special entries
-special_entries = ["trash", "media", "desktop"]
+special_entries = ["trash", "media"]
 
 # number of columns and rows
 num_col = 0 
 num_row = 0
-# reserved cells - items cannot be positioned there (type: indexs)
+# reserved cells - items cannot be positioned there
 reserved_cells = [[0, 0]]
 
 
@@ -201,11 +201,7 @@ class MyQlist(QListView):
         item_list = []
         self.item_idx = []
         for index in self.selectionModel().selectedIndexes():
-            if index.data(Qt.UserRole+1) == "file":
-                filepath = os.path.join(DDIR, index.data(0))
-            elif index.data(Qt.UserRole+1) == "desktop":
-                dname = index.data(Qt.UserRole+2)[0]
-                filepath = os.path.join(DDIR, dname)
+            filepath = os.path.join(DDIR, index.data(0))
             try:
                 # regular files or folders (not fifo, etc.)
                 if stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode) or stat.S_ISLNK(os.stat(filepath).st_mode):
@@ -223,7 +219,7 @@ class MyQlist(QListView):
             else:
                 painter = None
                 # number of selected items
-                num_item = len(self.item_idx)
+                num_item = len(self.selectionModel().selectedIndexes())
                 poffsetW = X_EXTENDED_DRAG_ICON
                 poffsetH = Y_EXTENDED_DRAG_ICON
                 psizeW = ICON_SIZE + (min(NUM_OVERLAY, num_item) * poffsetW) - poffsetW
@@ -232,15 +228,10 @@ class MyQlist(QListView):
                 pixmap.fill(QColor(253,253,253,0.0))
                 incr_offsetW = poffsetW
                 incr_offsetH = poffsetH
-                items_idx_temp = self.item_idx
                 #
                 model = self.model()
                 for i in reversed(range(min(NUM_OVERLAY, num_item))):
-                    index = items_idx_temp[i]
-                    # skip special entries
-                    if index.data(Qt.UserRole+1) in special_entries:
-                        self.item_idx.remove(index)
-                        continue
+                    index = self.selectionModel().selectedIndexes()[i]
                     if stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode) or stat.S_ISLNK(os.stat(filepath).st_mode):
                         file_icon = index.data(1)
                         pixmap1 = file_icon.pixmap(QSize(ICON_SIZE, ICON_SIZE))
@@ -264,15 +255,16 @@ class MyQlist(QListView):
                 painter.end()
         elif len(item_list) == 1:
             try:
-                index = self.item_idx[0]
-                if index.data(Qt.UserRole+1) == "file":
+                model = self.model()
+                for i in range(len(self.selectionModel().selectedIndexes())):
+                    index = self.selectionModel().selectedIndexes()[i]
                     filepath = os.path.join(DDIR, index.data(0))
-                elif index.data(Qt.UserRole+1) == "desktop":
-                    dname = index.data(Qt.UserRole+2)[0]
-                    filepath = os.path.join(DDIR, dname)
-                if stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode) or stat.S_ISLNK(os.stat(filepath).st_mode):
-                    file_icon = index.data(1)
-                    pixmap = file_icon.pixmap(QSize(ICON_SIZE, ICON_SIZE))
+                    if stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode) or stat.S_ISLNK(os.stat(filepath).st_mode):
+                        file_icon = index.data(1)
+                        pixmap = file_icon.pixmap(QSize(ICON_SIZE, ICON_SIZE))
+                        break
+                    else:
+                        continue
             except:
                 pixmap = QPixmap("icons/empty.svg").scaled(ICON_SIZE, ICON_SIZE, Qt.KeepAspectRatio, Qt.FastTransformation)
         else:
@@ -332,13 +324,6 @@ class MyQlist(QListView):
                     elif pointedItem.data(Qt.UserRole+1) == "trash":
                         event.acceptProposedAction()
                         self.trashItem(event.mimeData().urls())
-                    # the desktop file
-                    elif pointedItem.data(Qt.UserRole+1) == "desktop":
-                        # some items have been moved around the desktop
-                        event.ignore()
-                        # one item only
-                        if len(self.item_idx) == 1:
-                            self.dropEvent3(event)
                     else:
                         event.ignore()
                 else:
@@ -398,7 +383,7 @@ class MyQlist(QListView):
             ret = retDialogBox("Info", "Do you really want to move these items to the trashcan?", "", dialogList, self)
             #
             if ret.getValue():
-                TrashModule(list_items, self)
+                TrashModule(list_items)
     
     
     # dropEvent - some items have been moved around the desktop
@@ -412,13 +397,9 @@ class MyQlist(QListView):
             for row in range(model.rowCount()):
                 item_model = model.item(row)
                 # skip the special entries
-                custom_data = item_model.data(Qt.UserRole+1)
-                if custom_data in special_entries and custom_data != "desktop":
+                if item_model.data(Qt.UserRole+1) in special_entries:
                     continue
-                if custom_data == "file":
-                    item_name = item_model.data(0)
-                elif custom_data == "desktop":
-                    item_name = item_model.data(Qt.UserRole+2)[0]
+                item_name = item_model.data(0)
                 item_rect = self.visualRect(item_model.index())
                 if item_model:
                     iitem = "{}/{}/{}\n".format(item_rect.x(), item_rect.y(), item_name)
@@ -449,7 +430,7 @@ class MyQlist(QListView):
                     webUrl = uurl.url()
                     if webUrl[0:5] == "http:" or webUrl[0:6] == "https:":
                         webPaths.append(webUrl)
-            # 
+            # TO-DO
             if webPaths:
                 MyDialog("Info", "Not supported.", None)
                 event.ignore()
@@ -756,6 +737,7 @@ class MainWin(QWidget):
             self.observer = pyudev.MonitorObserver(monitor, self.mediaEvent)
             self.observer.daemon
             self.observer.start()
+            # observer.stop()
             #
             self.bus = dbus.SystemBus()
             #
@@ -831,7 +813,7 @@ class MainWin(QWidget):
         data = self.itemSetPos2()
         #
         if data == [-1,-1]:
-            MyDialog("Info", "Cannot add the device {}.".format(name), self)
+            MyDialog("Info", "Cannot add media.", self)
             return
         #
         if ttype == "flash-ms":
@@ -950,10 +932,7 @@ class MainWin(QWidget):
         if ret == -1:
             MyDialog("Error", "The device cannot be ejected.", self)
             return
-        # # remove the index from the model
-        # self.model.removeRow(index.row())
-        # # restore the positions
-        # self.listviewRestore2()
+
         
     # self.eject_media1
     def on_eject(self, ddrive):
@@ -1021,10 +1000,6 @@ class MainWin(QWidget):
         # the media devices
         elif index.data(Qt.UserRole+1) == "media":
             self.fopenMediaAction(index)
-            return
-        # desktop file
-        elif index.data(Qt.UserRole+1) == "desktop":
-            self.flaunchDesktop(index)
             return
         #
         path = os.path.join(DDIR, index.data(0))
@@ -1112,46 +1087,18 @@ class MainWin(QWidget):
     def addItem(self, new_desktop_list):
         for itd in new_desktop_list:
             if itd not in self.desktop_items:
-                ireal_path = os.path.join(DDIR, itd)
-                imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
-                if imime.name() == "application/x-desktop":
-                    # program name - icon - exec
-                    ddata = self.getDesktopData(ireal_path)
-                    dname = ddata[0]
-                    if ddata[1]:
-                        iicon = QIcon.fromTheme(ddata[1])
-                        if iicon.isNull():
-                            iicon = QIcon("icons/error2.svg")
-                    else:
-                        iicon = QIcon("icons/error2.svg")
-                    dexec = ddata[2]
-                    item = QStandardItem(iicon, dname)
-                    item.setData("desktop", Qt.UserRole + 1)
-                    item.setData([itd, ddata[1], ddata[2]], Qt.UserRole + 2)
-                    self.model.appendRow(item)
-                    #
-                    self.itemSetPos(item)
-                else:
-                    iicon = self.setIcons(os.path.join(DDIR, itd))
-                    item = QStandardItem(iicon, itd)
-                    item.setData("file", Qt.UserRole + 1)
-                    # Add the item to the model
-                    self.model.appendRow(item)
-                    #
-                    self.itemSetPos(item)
+                iicon = self.setIcons(os.path.join(DDIR, itd))
+                iitem = itd
+                item = QStandardItem(iicon, iitem)
+                item.setData("file", Qt.UserRole + 1)
+                # Add the item to the model
+                self.model.appendRow(item)
+                #
+                self.itemSetPos(item)
         # restore the position
         self.listviewRestore2()
     
     
-    # get the data from a desktop file
-    def getDesktopData(self, dpath):
-        entry = DesktopEntry(dpath)
-        dname = entry.getName() # program name
-        dicon = entry.getIcon() # icon
-        dexec = entry.getExec() # executable
-        return [dname, dicon, dexec]
-        
-        
     # remove item
     def removeItem(self, new_desktop_list):
         item_name_removed = []
@@ -1159,18 +1106,13 @@ class MainWin(QWidget):
             if itd not in new_desktop_list:
                 for row in range(self.model.rowCount()):
                     item = self.model.item(row)
-                    if item:
-                        custom_data = item.data(Qt.UserRole + 1)
-                        if custom_data != "desktop" and custom_data in special_entries:
-                            continue
-                        #
-                        if custom_data == "file":
-                            item_name = item.data(0)
-                        elif custom_data == "desktop":
-                            item_name = item.data(Qt.UserRole + 2)[0]
-                        if item_name == itd:
-                            self.model.removeRow(row)
-                            item_name_removed.append(item_name)
+                    if item and item.data(Qt.UserRole + 1) in special_entries:
+                        continue
+                    if item and item.data(0) == itd:
+                        item_name = item.data(0)
+                        self.model.removeRow(row)
+                        item_name_removed.append(item_name)
+        # update the file
         items_position = []
         with open("items_position", "r") as ff:
             items_position = ff.readlines()
@@ -1189,20 +1131,15 @@ class MainWin(QWidget):
     def itemSetPos(self, item):
         data = self.itemSetPos2()
         self.listview.setPositionForIndex(QPoint(data[0], data[1]), item.index())
-        # update the file - skip the special entries except desktop
-        custom_data = item.data(Qt.UserRole+1)
-        if custom_data != "desktop" and custom_data in special_entries:
+        # update the file - skip the special entries
+        if item.data(Qt.UserRole+1) in special_entries:
             # udpate the media list
             if item.data(Qt.UserRole+1) == "media":
                 self.media_added.append([data, item])
             return
         #
         with open("items_position", "a") as ff:
-            if custom_data == "file":
-                iitem = "{}/{}/{}\n".format(data[0], data[1], item.data(0))
-            elif custom_data == "desktop":
-                dname = item.data(Qt.UserRole+2)[0]
-                iitem = "{}/{}/{}\n".format(data[0], data[1], dname)
+            iitem = "{}/{}/{}\n".format(data[0], data[1], item.data(0))
             ff.write(iitem)
     
     
@@ -1228,7 +1165,7 @@ class MainWin(QWidget):
                     #
                     cc1 = cc*ITEM_WIDTH
                     rr1 = rr*ITEM_HEIGHT
-                    #
+                    # 
                     if self.media_added:
                         for mmedia in self.media_added:
                             if [cc1, rr1] == mmedia[0]:
@@ -1290,33 +1227,13 @@ class MainWin(QWidget):
             # 
             if os.path.exists(os.path.join(DDIR, item_name)):
                 # fill the model
-                ireal_path = os.path.join(DDIR, item_name)
-                imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
-                if imime.name() == "application/x-desktop":
-                    # name - icon - exec
-                    ddata = self.getDesktopData(ireal_path)
-                    dname = ddata[0]
-                    if ddata[1]:
-                        iicon = QIcon.fromTheme(ddata[1])
-                        if iicon.isNull():
-                            iicon = QIcon("icons/error2.svg")
-                    else:
-                        iicon = QIcon("icons/error2.svg")
-                    dexec = ddata[2]
-                    item = QStandardItem(iicon, dname)
-                    item.setData("desktop", Qt.UserRole + 1)
-                    item.setData([item_name, ddata[1], ddata[2]], Qt.UserRole + 2)
-                    self.model.appendRow(item)
-                    item_names.append(item_name)
-                else:
-                    #
-                    iicon = self.setIcons(os.path.join(DDIR, item_name))
-                    item = QStandardItem(iicon, item_name)
-                    # custom data
-                    item.setData("file", Qt.UserRole + 1)
-                    # add the item to the model
-                    self.model.appendRow(item)
-                    item_names.append(item_name)
+                iicon = self.setIcons(os.path.join(DDIR, item_name))
+                item = QStandardItem(iicon, item_name)
+                # custom data
+                item.setData("file", Qt.UserRole + 1)
+                # add the item to the model
+                self.model.appendRow(item)
+                item_names.append(item_name)
                 #
                 empty_cell_counter += 1
             else:
@@ -1352,27 +1269,10 @@ class MainWin(QWidget):
                         file_is_changed = 1
                         items_position.append("{}/{}/{}\n".format(data[0], data[1], item_name))
                         ## add the item to the model
+                        iicon = self.setIcons(os.path.join(DDIR, item_name))
+                        item = QStandardItem(iicon, item_name)
                         # custom data
-                        ireal_path = os.path.join(DDIR, item_name)
-                        imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
-                        if imime.name() == "application/x-desktop":
-                            # name - icon - exec
-                            ddata = self.getDesktopData(ireal_path)
-                            dname = ddata[0]
-                            if ddata[1]:
-                                iicon = QIcon.fromTheme(ddata[1])
-                                if iicon.isNull():
-                                    iicon = QIcon("icons/error2.svg")
-                            else:
-                                iicon = QIcon("icons/error2.svg")
-                            dexec = ddata[2]
-                            item = QStandardItem(iicon, dname)
-                            item.setData("desktop", Qt.UserRole + 1)
-                            item.setData([item_name, ddata[1], ddata[2]], Qt.UserRole + 2)
-                        else:
-                            iicon = self.setIcons(os.path.join(DDIR, item_name))
-                            item = QStandardItem(iicon, item_name)
-                            item.setData("file", Qt.UserRole + 1)
+                        item.setData("file", Qt.UserRole + 1)
                         # add the item to the model
                         self.model.appendRow(item)
                         #
@@ -1416,8 +1316,7 @@ class MainWin(QWidget):
                             x = mmedia[0][0]
                             y = mmedia[0][1]
                             self.listview.setPositionForIndex(QPoint(x, y), item_model.index())
-                #
-                # normal items and desktop files
+                # normal items
                 for iitem in items_position:
                     x, y, i_name = iitem.split("/")
                     # repositioning if excede the screen limits
@@ -1429,24 +1328,15 @@ class MainWin(QWidget):
                         x = data[0]
                         y = data[1]
                     #
-                    if item_model.data(Qt.UserRole+1) == "file":
-                        if i_name.strip("\n") == item_name:
-                            self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
-                    # desktop files
-                    elif item_model.data(Qt.UserRole+1) == "desktop":
-                        ddata = item_model.data(Qt.UserRole+2)
-                        item_model_real_name = ddata[0]
-                        #
-                        if i_name.strip("\n") == item_model_real_name: 
-                            self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
-        #
+                    if i_name.strip("\n") == item_name:
+                        self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
         # rebuild the file
         if items_changed:
             self.fitems_desktop()
         #
         self.listview.viewport().update()
 
-
+    
     #
     def eventFilter(self, obj, event):
         # select items continuosly without deselecting the others
@@ -1544,9 +1434,6 @@ class MainWin(QWidget):
             return
         elif pointedItem.data(Qt.UserRole+1) == "media":
             self.mediaSelected(position)
-            return
-        elif pointedItem.data(Qt.UserRole+1) == "desktop":
-            self.desktopSelected(position)
             return
         vr = self.listview.visualRect(pointedItem)
         pointedItem2 = self.listview.indexAt(QPoint(vr.x(),vr.y()))
@@ -1745,10 +1632,6 @@ class MainWin(QWidget):
                     ii += 2
             #
             if SHOW_EXIT:
-                menu.addSeparator()
-                reloadAction = QAction("Reload", self)
-                reloadAction.triggered.connect(self.restart)
-                menu.addAction(reloadAction)
                 exitAction = QAction("Exit", self)
                 exitAction.triggered.connect(self.winClose)
                 menu.addAction(exitAction)
@@ -1848,48 +1731,6 @@ class MainWin(QWidget):
     def fejectMediaAction(self, index):
         self.eject_media(index)
     
-    
-    # menu for desktop file
-    def desktopSelected(self, position):
-        pointedItem = self.listview.indexAt(position)
-        menu = QMenu("Menu", self.listview)
-        if MENU_H_COLOR:
-            menu.setStyleSheet(self.csa)
-        #
-        deleteAction = QAction("Delete", self)
-        deleteAction.triggered.connect(lambda:self.fdeleteDesktopAction(pointedItem))
-        menu.addAction(deleteAction)
-        menu.addSeparator()
-        openAction = QAction("Launch", self)
-        openAction.triggered.connect(lambda:self.flaunchDesktop(pointedItem))
-        menu.addAction(openAction)
-        #
-        menu.exec_(self.listview.mapToGlobal(position))
-    
-    # self.desktopSelected
-    def fdeleteDesktopAction(self, pointedItem):
-        dname = pointedItem.data(Qt.UserRole+2)[0]
-        dpath = os.path.join(DDIR, dname)
-        try:
-            os.remove(dpath)
-        except Exception as E:
-            MyDialog("Info", str(E), self)
-    
-    
-    # launch a program from its desktop file
-    def flaunchDesktop(self, index):
-        # name - icon - exec
-        ddata = index.data(Qt.UserRole+2)
-        dexec = ddata[2]
-        if shutil.which(dexec):
-            try:
-                subprocess.Popen([dexec])
-            except Exception as E:
-                MyDialog("Error", str(E), self)
-        else:
-            MyDialog("Error", "The program {} cannot be found.".format(dexec), self)
-    
-    
     # 
     def ficustomAction(self, el, menuType):
         if menuType == 1:
@@ -1981,20 +1822,15 @@ class MainWin(QWidget):
         if self.selection:
             list_items = []
             for item in self.selection:
-                # skip special entries
-                if item.data(Qt.UserRole+1) in special_entries:
-                    continue
                 list_items.append(os.path.join(DDIR, item.data(0)))
             #
-            if not list_items:
-                return
             dialogList = ""
             for item in list_items:
                 dialogList += os.path.basename(item)+"\n"
             ret = retDialogBox("Info", "Do you really want to move these items to the trashcan?", "", dialogList, self)
             #
             if ret.getValue():
-                TrashModule(list_items, self)
+                TrashModule(list_items)
                 self.listview.viewport().update()
     
     
@@ -2078,9 +1914,6 @@ class MainWin(QWidget):
         # number of the selected items
         iNum = len(self.selection)
         for iitem in self.selection:
-            if iitem.data(Qt.UserRole+1) in special_entries:
-                iNum -= 1
-                continue
             try:
                 item = os.path.join(DDIR, item.data(0))
                 #
@@ -2161,9 +1994,9 @@ class MainWin(QWidget):
         time.sleep(1)
         qApp.quit()
 
-    def restart(self):
-        QCoreApplication.quit()
-        status = QProcess.startDetached(sys.executable, sys.argv)
+    # def restart(self):
+        # QCoreApplication.quit()
+        # status = QProcess.startDetached(sys.executable, sys.argv)
 
 ################
 
@@ -4096,9 +3929,8 @@ class MyDialog(QDialog):
 
 class TrashModule():
     
-    def __init__(self, list_items, window):
+    def __init__(self, list_items):
         self.list_items = list_items
-        self.window = window
         self.trash_path = self.find_trash_path(self.list_items[0])
         self.Tfiles = os.path.join(self.trash_path, "files")
         self.Tinfo = os.path.join(self.trash_path, "info")
