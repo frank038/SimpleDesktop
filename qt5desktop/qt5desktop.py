@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.4.5
+# Version 0.4.6
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -778,7 +778,7 @@ class itemDelegate(QItemDelegate):
         
     
     def sizeHint(self, option, index):
-        qstring = index.data(QFileSystemModel.FileNameRole)
+        qstring = index.data(0)
         st = QStaticText(qstring)
         hh = st.size().height()
         return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
