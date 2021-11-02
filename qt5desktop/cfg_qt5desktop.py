@@ -1,13 +1,13 @@
 # the folder to set as desktop in the home directory
 USER_DESKTOP="Desktop"
-# left margin
-LEFT_M=10
-# top margin
+# left margin - minimum
+LEFT_M=30
+# top margin - minimum
 TOP_M=50
-# right margin
-RIGHT_M=10
-# bottom margin
-BOTTOM_M=30
+# right margin - minimum
+RIGHT_M=30
+# bottom margin - minimum
+BOTTOM_M=100
 # multi items drag picture: 0 use simple icon - 1 enable extended icon
 USE_EXTENDED_DRAG_ICON=1
 # x offset of each icon if USE_EXTENDED_DRAG_ICON is enabled
@@ -21,11 +21,11 @@ USE_THUMB=0
 # use custom icons for folders: 0 no - 1 yes
 USE_FOL_CI=0
 # space between items
-ITEM_SPACE=25
+ITEM_SPACE=48
 # icon cell width - greater than ICON_SIZE
 ITEM_WIDTH=180
-# icon cell height
-ITEM_HEIGHT=200
+# icon cell height - DO NOT CHANGE
+ITEM_HEIGHT=ITEM_WIDTH
 # icon size
 ICON_SIZE=120
 # thumb size: greater than ICON_SIZE - same size of ICON_SIZE to disable bigger thumbnailers
@@ -83,6 +83,9 @@ USE_BACKGROUND_COLOUR=0
 BACKGROUND_COLOR="#878787"
 # show the exit button: 0 no - 1 yes
 SHOW_EXIT=1
+### needed for qt5archiver
+# usually 7z - or 7za
+COMMAND_EXTRACTOR="7z"
 ### needed by pythumb
 # use thumbnailer in the home dir only: 0 no - 1 yes
 USE_THUMB_HOME_ONLY=1

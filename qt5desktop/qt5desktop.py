@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.4.0
+# Version 0.4.5
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -21,7 +21,6 @@ from cfg_qt5desktop import *
 if USE_MEDIA:
     import pyudev
     import dbus
-#import psutil
 
 
 class firstMessage(QWidget):
@@ -155,10 +154,18 @@ WINH = 0
 # special entries
 special_entries = ["trash", "media", "desktop"]
 
+# margins
+LEFT_M = LEFT_M
+TOP_M = TOP_M
+RIGHT_M = RIGHT_M
+BOTTOM_M = BOTTOM_M
 # number of columns and rows
+ITEM_SPACE = int(ITEM_SPACE/2)*2
+ITEM_WIDTH += ITEM_SPACE
+ITEM_HEIGHT += ITEM_SPACE
 num_col = 0 
 num_row = 0
-# reserved cells - items cannot be positioned there (type: indexs)
+# reserved cells - items cannot be positioned there (type: indexes)
 reserved_cells = [[0, 0]]
 
 
@@ -190,12 +197,14 @@ def convert_size(fsize2):
     return sfsize  
 
 
+ARCHIVE_PASSWORD=""
 class MyQlist(QListView):
     def __init__(self):
         super(MyQlist, self).__init__()
         # the list of dragged items
         self.item_idx = []
-    
+        self.customMimeType = "application/x-customqt5archiver"
+        
     
     def startDrag(self, supportedActions):
         item_list = []
@@ -305,8 +314,85 @@ class MyQlist(QListView):
     def dragMoveEvent(self, event):
         event.acceptProposedAction()
     
+    # check it the archive is password protected
+    def test_archive(self, path):
+        szdata = None
+        try:
+            szdata = subprocess.check_output('{} l -slt -bso0 -- "{}"'.format(COMMAND_EXTRACTOR, path), shell=True)
+        except:
+            return 0
+        #
+        if szdata != None:
+            szdata_decoded = szdata.decode()
+            ddata = szdata_decoded.splitlines()
+            if "Encrypted = +" in ddata:
+                return 2
+            else:
+                return 1
     
     def dropEvent(self, event):
+        # qt5simplearchiver
+        if event.mimeData().hasFormat(self.customMimeType):
+            ddata_temp = event.mimeData().data(self.customMimeType)
+            ddata = str(ddata_temp, 'utf-8').split("\n")
+            archive_name = ddata[0]
+            # extraction mode (e or x) - item type (file or folder) - item name (with path)
+            items = ddata[1:]
+            #
+            dest_path = DDIR
+            pointedItem = self.indexAt(event.pos())
+            if pointedItem.isValid():
+                ifp = pointedItem.data(0)
+                dest_dir = os.path.join(DDIR, ifp)
+                if os.path.isdir(dest_dir):
+                    if os.access(dest_dir, os.W_OK):
+                        dest_path = dest_dir
+                    else:
+                        MyDialog("Info", "Not writable:\n{}".format(os.path.basename(ifp)), None)
+            #
+            if shutil.which(COMMAND_EXTRACTOR):
+                try:
+                    global ARCHIVE_PASSWORD
+                    password = ARCHIVE_PASSWORD
+                    passWord = None
+                    hasPassWord = self.test_archive(archive_name)
+                    if hasPassWord == 2:
+                        if not password:
+                            password = passWord(archive_name, None).arpass
+                            ARCHIVE_PASSWORD = password
+                            if not password:
+                                MyDialog("Info", "Cancelled.", None)
+                                return
+                    # 
+                    for i in range(0, len(items), 3):
+                        ttype = items[i]
+                        item_type = items[i+1]
+                        item_to_extract = items[i+2]
+                        if item_type == "file":
+                            # -aou rename the file to be copied -aot rename the file at destination - both if an item with the same name already exists
+                            ret = os.system("{0} {1} '-i!{2}' {3} -y -aou -p{4} -o{5} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, item_to_extract, archive_name, password, dest_path))
+                        elif item_type == "folder":
+                            ttype = "x"
+                            if passWord:
+                                ret = os.system("{0} {1} {2} *.* -r '{3}' -y -aou -p{4} -o{5} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, password, dest_path))
+                            else:
+                                ret = os.system("{0} {1} {2} *.* -r '{3}' -y -aou -o{4} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, dest_path))
+                        time.sleep(0.5)
+                    ### exit codes
+                    # 0 No error
+                    # 1 Warning (Non fatal error(s)). For example, one or more files were locked by some other application, so they were not compressed.
+                    # 2 Fatal error
+                    # 7 Command line error
+                    # 8 Not enough memory for operation
+                    # 255 User stopped the process
+                    if ret == 0:
+                        MyDialog("Info", "Extracted.", None)
+                    elif ret != -5:
+                        MyDialog("Error", "{}".format(ret), None)
+                except Exception as E:
+                    MyDialog("Error", str(E), None)
+            return
+        #
         dest_path = DDIR
         curr_dir = QFileInfo(dest_path)
         if not curr_dir.isWritable():
@@ -404,9 +490,16 @@ class MyQlist(QListView):
     # dropEvent - some items have been moved around the desktop
     def dropEvent3(self, event):
         model = self.model()
-        x = int(event.pos().x()/ITEM_WIDTH) * ITEM_WIDTH
-        y = int(event.pos().y()/ITEM_HEIGHT) * ITEM_HEIGHT
-        self.setPositionForIndex(QPoint(x, y) , self.item_idx[0])
+        x = int(event.pos().x()/ITEM_WIDTH) * ITEM_WIDTH + LEFT_M
+        y = int(event.pos().y()/ITEM_HEIGHT) * ITEM_HEIGHT + TOP_M
+        col_x = int((x)/ITEM_WIDTH)
+        col_y = int((y)/ITEM_HEIGHT)
+        if col_x <= num_col-1 and col_y <= num_row-1:
+            self.setPositionForIndex(QPoint(x, y) , self.item_idx[0])
+        else:
+            # reset
+            self.item_idx = []
+            return
         # 
         with open("items_position", "w") as ff:
             for row in range(model.rowCount()):
@@ -420,8 +513,11 @@ class MyQlist(QListView):
                 elif custom_data == "desktop":
                     item_name = item_model.data(Qt.UserRole+2)[0]
                 item_rect = self.visualRect(item_model.index())
+                #
+                x1 = int(item_rect.x()/ITEM_WIDTH)
+                y1 = int(item_rect.y()/ITEM_HEIGHT)
                 if item_model:
-                    iitem = "{}/{}/{}\n".format(item_rect.x(), item_rect.y(), item_name)
+                    iitem = "{}/{}/{}\n".format(x1, y1, item_name)
                     ff.write(iitem)
         # reset
         self.item_idx = []
@@ -477,14 +573,80 @@ class MyQlist(QListView):
                 event.ignore()
         else:
             event.ignore()
-            
+        
+
+# dialog for asking the archive password
+class passWord(QDialog):
+    def __init__(self, path, parent):
+        super(passWord, self).__init__(parent)
+        # self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
+        self.setWindowTitle("7z extractor")
+        self.setWindowModality(Qt.ApplicationModal)
+        self.resize(600,100)
+        #
+        self.path = path
+        # main box
+        mbox = QBoxLayout(QBoxLayout.TopToBottom)
+        mbox.setContentsMargins(5,5,5,5)
+        # label
+        self.label = QLabel("Enter The Password:")
+        mbox.addWidget(self.label)
+        # checkbox
+        self.ckb = QCheckBox("Hide/Show the password")
+        self.ckb.setChecked(True)
+        self.ckb.toggled.connect(self.on_checked)
+        mbox.addWidget(self.ckb)
+        # lineedit
+        self.le1 = QLineEdit()
+        self.le1.setEchoMode(QLineEdit.Password)
+        mbox.addWidget(self.le1)
+        ##
+        button_box = QBoxLayout(QBoxLayout.LeftToRight)
+        button_box.setContentsMargins(0,0,0,0)
+        mbox.addLayout(button_box)
+        #
+        button_ok = QPushButton("     Accept     ")
+        button_box.addWidget(button_ok)
+        #
+        button_close = QPushButton("     Cancel     ")
+        button_box.addWidget(button_close)
+        #
+        self.setLayout(mbox)
+        button_ok.clicked.connect(self.getpswd)
+        button_close.clicked.connect(self.close)
+        #
+        self.arpass = ""
+        #
+        self.exec_()
+    
+    def on_checked(self):
+        if self.ckb.isChecked():
+            self.le1.setEchoMode(QLineEdit.Password)
+        else:
+            self.le1.setEchoMode(QLineEdit.Normal)
+    
+    def getpswd(self):
+        passwd = self.le1.text()
+        try:
+            ptest = subprocess.check_output('{} t -p{} -bso0 -- "{}"'.format(COMMAND_EXTRACTOR, passwd, self.path), shell=True)
+            if ptest.decode() == "":
+                self.arpass = passwd
+                self.close()
+        except:
+            self.label.setText("Wrong Password:")
+            self.le1.setText("")
+
 
 class itemDelegate(QItemDelegate):
 
     def __init__(self, parent=None):
         super(itemDelegate, self).__init__(parent)
+        self.text_width = ITEM_WIDTH - ITEM_SPACE/2
     
     def paint(self, painter, option, index):
+        itemx = option.rect.x()
+        itemy = option.rect.y()
+        #
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
         iicon = index.data(1)
@@ -503,7 +665,7 @@ class itemDelegate(QItemDelegate):
         ph = size_pixmap.height()
         xpad = int((ITEM_WIDTH - pw) / 2)
         ypad = int((ICON_SIZE - ph) / 2)
-        painter.drawPixmap(option.rect.x() + xpad,option.rect.y() + ypad, -1,-1, pixmap,0,0,-1,-1)
+        painter.drawPixmap(itemx + xpad, itemy + ypad, -1,-1, pixmap,0,0,-1,-1)
         #
         fileInfo = QFileInfo(ppath)
         # skip trashcan and media
@@ -511,15 +673,15 @@ class itemDelegate(QItemDelegate):
             if not os.path.isdir(ppath):
                 if not fileInfo.isReadable() or not fileInfo.isWritable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                    painter.drawPixmap(option.rect.x(), option.rect.y()+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
+                    painter.drawPixmap(itemx, itemy+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
             else:
                 if not fileInfo.isReadable() or not fileInfo.isWritable() or not fileInfo.isExecutable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                    painter.drawPixmap(option.rect.x(), option.rect.y()+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
+                    painter.drawPixmap(itemx, itemy+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
             #
             if os.path.islink(ppath):
                 lpixmap = QPixmap('icons/emblem-symbolic-link.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                painter.drawPixmap(option.rect.x()+ITEM_WIDTH-ICON_SIZE2, option.rect.y()+ICON_SIZE-ICON_SIZE2,-1,-1, lpixmap,0,0,-1,-1)
+                painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2, itemy+ICON_SIZE-ICON_SIZE2,-1,-1, lpixmap,0,0,-1,-1)
         #
         painter.save()
         # text background colour
@@ -528,20 +690,21 @@ class itemDelegate(QItemDelegate):
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
             painter.setPen(QColor(CIRCLE_COLOR))
-            painter.drawEllipse(QRect(option.rect.x()+1,option.rect.y()+1,CIRCLE_SIZE,CIRCLE_SIZE))
+            painter.drawEllipse(QRect(itemx+1,itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
             # skip trashcan and media
             if index.data(Qt.UserRole+1) == "file":
                 # tick symbol
                 painter.setPen(QColor(TICK_COLOR))
                 text = '<div style="font-size:{}px">{}</div>'.format(TICK_SIZE, TICK_CHAR)
                 st = QStaticText(text)
-                tx = int(option.rect.x()+1+((CIRCLE_SIZE - st.size().width())/2))
-                ty = int(option.rect.y()+1+((CIRCLE_SIZE - st.size().height())/2))
+                tx = int(itemx+1+((CIRCLE_SIZE - st.size().width())/2))
+                ty = int(itemy+1+((CIRCLE_SIZE - st.size().height())/2))
                 painter.drawStaticText(tx, ty, st)
             #
             qstring = index.data(0)
+            
             st = QStaticText(qstring)
-            st.setTextWidth(ITEM_WIDTH)
+            st.setTextWidth(self.text_width)
             to = QTextOption(Qt.AlignCenter)
             to.setWrapMode(QTextOption.WrapAnywhere)
             st.setTextOption(to)
@@ -550,23 +713,27 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(option.rect.x(),option.rect.y()+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/4,itemy+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
             #
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(option.rect.x(), option.rect.y()+ICON_SIZE+10, st)
+            painter.drawStaticText(itemx+ITEM_SPACE/4, itemy+ICON_SIZE+10, st)
         elif option.state & QStyle.State_MouseOver:
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
             painter.setPen(QColor(CIRCLE_COLOR))
-            painter.drawEllipse(QRect(option.rect.x()+1,option.rect.y()+1,CIRCLE_SIZE,CIRCLE_SIZE))
+            painter.drawEllipse(QRect(itemx+1,itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
             #
             qstring = index.data(0)
+            #
+            metrics = QFontMetrics(painter.font())
+            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH)
+            #
             st = QStaticText(qstring)
-            st.setTextWidth(ITEM_WIDTH)
+            st.setTextWidth(self.text_width)
             to = QTextOption(Qt.AlignCenter)
             to.setWrapMode(QTextOption.WrapAnywhere)
             st.setTextOption(to)
@@ -575,13 +742,13 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(option.rect.x(),option.rect.y()+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/4,itemy+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(option.rect.x(), option.rect.y()+ICON_SIZE+10, st)
+            painter.drawStaticText(itemx+ITEM_SPACE/4, itemy+ICON_SIZE+10, st)
         else:
             qstring = index.data(0)
             #
@@ -589,7 +756,7 @@ class itemDelegate(QItemDelegate):
             qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH)
             #
             st = QStaticText(qstring)
-            st.setTextWidth(ITEM_WIDTH)
+            st.setTextWidth(self.text_width)
             to = QTextOption(Qt.AlignCenter)
             to.setWrapMode(QTextOption.WrapAnywhere)
             st.setTextOption(to)
@@ -598,30 +765,23 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(option.rect.x(),option.rect.y()+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/4,itemy+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
             #
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(option.rect.x(), option.rect.y()+ICON_SIZE+10, st)
+            painter.drawStaticText(itemx+ITEM_SPACE/4, itemy+ICON_SIZE+10, st)
         #
         painter.restore()
         
     
     def sizeHint(self, option, index):
-        return QSize(ITEM_WIDTH, ICON_SIZE)
-        #
-        # qstring = index.data(QFileSystemModel.FileNameRole)
-        # st = QStaticText(qstring)
-        # st.setTextWidth(ITEM_WIDTH)
-        # to = QTextOption(Qt.AlignCenter)
-        # to.setWrapMode(QTextOption.WrapAnywhere)
-        # st.setTextOption(to)
-        # ww = st.size().width()
-        # hh = st.size().height()
-        # return QSize(int(ww), int(hh)+ITEM_HEIGHT)
+        qstring = index.data(QFileSystemModel.FileNameRole)
+        st = QStaticText(qstring)
+        hh = st.size().height()
+        return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
 
 
 class thumbThread(threading.Thread):
@@ -671,8 +831,6 @@ class MainWin(QWidget):
         self.selection = None
         self.vbox.addWidget(self.listview)
         self.listview.setViewMode(QListView.IconMode)
-        self.listview.setMovement(QListView.Snap)
-        self.listview.setGridSize(QSize(ITEM_WIDTH, ITEM_HEIGHT))
         self.listview.setFlow(QListView.TopToBottom)
         #
         self.listview.clicked.connect(self.singleClick)
@@ -683,14 +841,9 @@ class MainWin(QWidget):
         # reserved cells - items cannot be positioned there
         self.reserved_cells = reserved_cells
         #
-        xpad = int((WINW-self.num_col*ITEM_WIDTH)/4)
-        ypad = int((WINH-self.num_row*ITEM_HEIGHT)/4)
-        self.listview.setViewportMargins(LEFT_M+xpad, TOP_M+ypad, RIGHT_M+xpad, BOTTOM_M)
-        #
         self.listview.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.listview.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff) 
         #
-        self.listview.setSpacing(ITEM_SPACE)
         self.listview.setSelectionMode(self.listview.ExtendedSelection)
         ### the model
         self.model = QStandardItemModel()
@@ -950,10 +1103,7 @@ class MainWin(QWidget):
         if ret == -1:
             MyDialog("Error", "The device cannot be ejected.", self)
             return
-        # # remove the index from the model
-        # self.model.removeRow(index.row())
-        # # restore the positions
-        # self.listviewRestore2()
+
         
     # self.eject_media1
     def on_eject(self, ddrive):
@@ -1095,8 +1245,7 @@ class MainWin(QWidget):
             self.removeItem(new_desktop_list)
         # all the other cases supported: renaming, properties, ecc.
         else:
-            self.removeItem(new_desktop_list)
-            self.addItem(new_desktop_list)
+            self.changedItem(new_desktop_list)
         # update the list
         self.desktop_items = new_desktop_list
         #
@@ -1184,11 +1333,53 @@ class MainWin(QWidget):
         # restore the position
         self.listviewRestore2()
     
+    
+    #
+    def changedItem(self, new_desktop_list):
+        old_item = None
+        for itd in self.desktop_items:
+            if itd not in new_desktop_list:
+                old_item = itd
+        new_item = None
+        for itd in new_desktop_list:
+            if itd not in self.desktop_items:
+                new_item = itd
+        # update the model
+        for row in range(self.model.rowCount()):
+            item_model = self.model.item(row)
+            if item_model.data(0) == old_item:
+                item_model.setData(new_item, Qt.DisplayRole)
+        # update the file
+        items_position = []
+        x = 0
+        y = 0
+        with open("items_position", "r") as ff:
+            items_position = ff.readlines()
+        for iitem in items_position[:]:
+            if iitem.split("/")[-1].strip("\n") == old_item:
+                items_position.remove(iitem)
+                x,y,n = iitem.split("/")
+                items_position.append("{}/{}/{}\n".format(x, y, new_item))
+                break
+        # 
+        with open("items_position", "w") as ff:
+            for iitem in items_position:
+                ff.write(iitem)
+        #
+        self.listview.viewport().update()
+    
+    
+    # service function for self.listview.setPositionForIndex
+    def fSetPositionForIndex(self, data, itemIdx):
+        x = data[0]*ITEM_WIDTH+LEFT_M
+        y = data[1]*ITEM_HEIGHT+TOP_M
+        self.listview.setPositionForIndex(QPoint(x, y), itemIdx)
         
+    
     # item positioning in the listview
     def itemSetPos(self, item):
         data = self.itemSetPos2()
-        self.listview.setPositionForIndex(QPoint(data[0], data[1]), item.index())
+        self.fSetPositionForIndex((data[0], data[1]), item.index())
         # update the file - skip the special entries except desktop
         custom_data = item.data(Qt.UserRole+1)
         if custom_data != "desktop" and custom_data in special_entries:
@@ -1218,7 +1409,7 @@ class MainWin(QWidget):
         list_pos = []
         for iitem in items_position:
             iitem_data = iitem.split("/")
-            list_pos.append([int(int(iitem_data[0])/ITEM_WIDTH), int(int(iitem_data[1])/ITEM_HEIGHT)])
+            list_pos.append([int(iitem_data[0]), int(iitem_data[1])])
         # 
         for cc in reversed(range(self.num_col)):
             for rr in range(self.num_row):
@@ -1226,8 +1417,8 @@ class MainWin(QWidget):
                     if [cc, rr] in self.reserved_cells:
                         continue
                     #
-                    cc1 = cc*ITEM_WIDTH
-                    rr1 = rr*ITEM_HEIGHT
+                    cc1 = cc
+                    rr1 = rr
                     #
                     if self.media_added:
                         for mmedia in self.media_added:
@@ -1252,8 +1443,10 @@ class MainWin(QWidget):
                     continue
                 item_name = item_model.data(0)
                 item_rect = self.listview.visualRect(item_model.index())
+                x = int((item_rect.x()-LEFT_M)/ITEM_WIDTH)
+                y = int((item_rect.y()-TOP_M)/ITEM_HEIGHT)
                 if item_model:
-                    iitem = "{}/{}/{}\n".format(item_rect.x(), item_rect.y(), item_name)
+                    iitem = "{}/{}/{}\n".format(x, y, item_name)
                     ff.write(iitem)
     
     
@@ -1408,14 +1601,14 @@ class MainWin(QWidget):
             if item_model:
                 # the trashcan
                 if item_model.data(Qt.UserRole+1) == "trash":
-                    self.listview.setPositionForIndex(QPoint(0, 0), item_model.index())
+                    self.fSetPositionForIndex((0, 0), item_model.index())
                 # the media devices
                 elif item_model.data(Qt.UserRole+1) == "media":
                     for mmedia in self.media_added:
                         if mmedia[1].data(0) == item_model.data(0):
                             x = mmedia[0][0]
                             y = mmedia[0][1]
-                            self.listview.setPositionForIndex(QPoint(x, y), item_model.index())
+                            self.fSetPositionForIndex((x, y), item_model.index())
                 #
                 # normal items and desktop files
                 for iitem in items_position:
@@ -1423,7 +1616,7 @@ class MainWin(QWidget):
                     # repositioning if excede the screen limits
                     max_width = (num_col-1)*ITEM_WIDTH
                     max_height = (num_row-1)*ITEM_HEIGHT
-                    if int(x) > max_width or int(y) > max_height:
+                    if int(x)*ITEM_WIDTH > max_width or int(y)*ITEM_HEIGHT > max_height:
                         data = self.itemSetPos2()
                         items_changed = 1
                         x = data[0]
@@ -1431,14 +1624,14 @@ class MainWin(QWidget):
                     #
                     if item_model.data(Qt.UserRole+1) == "file":
                         if i_name.strip("\n") == item_name:
-                            self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
+                            self.fSetPositionForIndex((int(x), int(y)), item_model.index())
                     # desktop files
                     elif item_model.data(Qt.UserRole+1) == "desktop":
                         ddata = item_model.data(Qt.UserRole+2)
                         item_model_real_name = ddata[0]
                         #
                         if i_name.strip("\n") == item_model_real_name: 
-                            self.listview.setPositionForIndex(QPoint(int(x), int(y)), item_model.index())
+                            self.fSetPositionForIndex((int(x), int(y)), item_model.index())
         #
         # rebuild the file
         if items_changed:
@@ -4210,8 +4403,12 @@ if __name__ == '__main__':
     WINH = size.height()+2
     #
     # number of columns and rows
-    num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH) 
+    num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH)
     num_row = int((WINH-TOP_M-BOTTOM_M)/ITEM_HEIGHT)
+    num_col_rest = int((WINW-LEFT_M-RIGHT_M)%ITEM_WIDTH)
+    num_row_rest = int((WINH-TOP_M-BOTTOM_M)%ITEM_HEIGHT)
+    LEFT_M += int(num_col_rest/2)
+    TOP_M += int(num_row_rest/4)
     #
     window = MainWin()
     window.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)
