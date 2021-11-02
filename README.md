@@ -1,15 +1,15 @@
 # SimpleDesktop
 A simple and lite desktop manager.
 
-Version 0.3.9 and 0.4.0 (testing - no more features will be added)
+Version 0.4.5 (testing)
 
 Create the empty file "items_position" in the program folder or use the tar packed version.
-
-Starting from the V. 0.4.0 the program can handle the desktop files.
 
 Personalizations in the config file.
 
 The trashcan change its icon to reflect its state, empty or not empty. The Recycle Bin space is reserved and exclusive. To use a wallpaper, just put an image named wallpaper.jpg at the exactly screen sizes in the program folder.
+
+Can handle desktop files (programs).
 
 Limitations: only one item at time can change its position on the desktop.
 
