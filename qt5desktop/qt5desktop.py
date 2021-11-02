@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.4.6
+# Version 0.4.7
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -673,15 +673,15 @@ class itemDelegate(QItemDelegate):
             if not os.path.isdir(ppath):
                 if not fileInfo.isReadable() or not fileInfo.isWritable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                    painter.drawPixmap(itemx, itemy+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
+                    painter.drawPixmap(itemx+int(ITEM_SPACE/4), itemy+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
             else:
                 if not fileInfo.isReadable() or not fileInfo.isWritable() or not fileInfo.isExecutable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                    painter.drawPixmap(itemx, itemy+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
+                    painter.drawPixmap(itemx+int(ITEM_SPACE/4), itemy+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
             #
             if os.path.islink(ppath):
                 lpixmap = QPixmap('icons/emblem-symbolic-link.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2, itemy+ICON_SIZE-ICON_SIZE2,-1,-1, lpixmap,0,0,-1,-1)
+                painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2-int(ITEM_SPACE/4), itemy+ICON_SIZE-ICON_SIZE2,-1,-1, lpixmap,0,0,-1,-1)
         #
         painter.save()
         # text background colour
@@ -690,14 +690,14 @@ class itemDelegate(QItemDelegate):
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
             painter.setPen(QColor(CIRCLE_COLOR))
-            painter.drawEllipse(QRect(itemx+1,itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
+            painter.drawEllipse(QRect(itemx+1+int(ITEM_SPACE/4),itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
             # skip trashcan and media
             if index.data(Qt.UserRole+1) == "file":
                 # tick symbol
                 painter.setPen(QColor(TICK_COLOR))
                 text = '<div style="font-size:{}px">{}</div>'.format(TICK_SIZE, TICK_CHAR)
                 st = QStaticText(text)
-                tx = int(itemx+1+((CIRCLE_SIZE - st.size().width())/2))
+                tx = int(itemx+1+((CIRCLE_SIZE - st.size().width())/2))+int(ITEM_SPACE/4)
                 ty = int(itemy+1+((CIRCLE_SIZE - st.size().height())/2))
                 painter.drawStaticText(tx, ty, st)
             #
@@ -725,7 +725,7 @@ class itemDelegate(QItemDelegate):
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
             painter.setPen(QColor(CIRCLE_COLOR))
-            painter.drawEllipse(QRect(itemx+1,itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
+            painter.drawEllipse(QRect(itemx+1+int(ITEM_SPACE/4),itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
             #
             qstring = index.data(0)
             #
@@ -825,6 +825,7 @@ class MainWin(QWidget):
                 self.desktop_items.remove(iitem)
         ##################
         self.listview = MyQlist()
+        # # self.listview.setUniformItemSizes(False)
         # disable the double clicking renaming
         self.listview.setEditTriggers(QAbstractItemView.NoEditTriggers)
         #
@@ -844,6 +845,7 @@ class MainWin(QWidget):
         self.listview.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.listview.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff) 
         #
+        # self.listview.setSpacing(ITEM_SPACE)
         self.listview.setSelectionMode(self.listview.ExtendedSelection)
         ### the model
         self.model = QStandardItemModel()
@@ -1098,12 +1100,19 @@ class MainWin(QWidget):
         k = "/org/freedesktop/UDisks2/block_devices/"+ddevice.split("/")[-1]
         bd = self.bus.get_object('org.freedesktop.UDisks2', k)
         ddrive = bd.Get('org.freedesktop.UDisks2.Block', 'Drive', dbus_interface='org.freedesktop.DBus.Properties')
+        bd2 = self.bus.get_object('org.freedesktop.UDisks2', ddrive)
+        can_poweroff = bd2.Get('org.freedesktop.UDisks2.Drive', 'CanPowerOff', dbus_interface='org.freedesktop.DBus.Properties')
         #
         ret = self.on_eject(ddrive)
         if ret == -1:
             MyDialog("Error", "The device cannot be ejected.", self)
             return
-
+        #
+        if can_poweroff:
+            ret = self.on_poweroff(ddrive)
+            if ret == -1:
+                MyDialog("Error", "The device cannot be turned off.", self)
+                return
         
     # self.eject_media1
     def on_eject(self, ddrive):
@@ -1119,7 +1128,24 @@ class MainWin(QWidget):
             return ret
         except:
             return -1
-            
+    
+    
+    # self.eject_media1
+    def on_poweroff(self, ddrive):
+        progname = 'org.freedesktop.UDisks2'
+        objpath  = ddrive
+        intfname = 'org.freedesktop.UDisks2.Drive'
+        try:
+            bus = dbus.SystemBus()
+            methname = 'PowerOff'
+            obj  = bus.get_object(progname, objpath)
+            intf = dbus.Interface(obj, intfname)
+            ret = intf.get_dbus_method(methname, dbus_interface='org.freedesktop.UDisks2.Drive')([])
+            return ret
+        except:
+            return -1
+    
+    
     ####################### devices end #######################
     
     # get the items in the desktop directory
