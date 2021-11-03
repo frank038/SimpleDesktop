@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.4.7
+# Version 0.4.8
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -353,14 +353,11 @@ class MyQlist(QListView):
             if shutil.which(COMMAND_EXTRACTOR):
                 try:
                     global ARCHIVE_PASSWORD
-                    password = ARCHIVE_PASSWORD
-                    passWord = None
                     hasPassWord = self.test_archive(archive_name)
                     if hasPassWord == 2:
-                        if not password:
-                            password = passWord(archive_name, None).arpass
-                            ARCHIVE_PASSWORD = password
-                            if not password:
+                        if not ARCHIVE_PASSWORD:
+                            ARCHIVE_PASSWORD = passWord(archive_name, None).arpass
+                            if not ARCHIVE_PASSWORD:
                                 MyDialog("Info", "Cancelled.", None)
                                 return
                     # 
@@ -370,11 +367,11 @@ class MyQlist(QListView):
                         item_to_extract = items[i+2]
                         if item_type == "file":
                             # -aou rename the file to be copied -aot rename the file at destination - both if an item with the same name already exists
-                            ret = os.system("{0} {1} '-i!{2}' {3} -y -aou -p{4} -o{5} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, item_to_extract, archive_name, password, dest_path))
+                            ret = os.system("{0} {1} '-i!{2}' {3} -y -aou -p{4} -o{5} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, item_to_extract, archive_name, ARCHIVE_PASSWORD, dest_path))
                         elif item_type == "folder":
                             ttype = "x"
                             if passWord:
-                                ret = os.system("{0} {1} {2} *.* -r '{3}' -y -aou -p{4} -o{5} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, password, dest_path))
+                                ret = os.system("{0} {1} {2} *.* -r '{3}' -y -aou -p{4} -o{5} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, ARCHIVE_PASSWORD, dest_path))
                             else:
                                 ret = os.system("{0} {1} {2} *.* -r '{3}' -y -aou -o{4} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, dest_path))
                         time.sleep(0.5)
@@ -489,40 +486,66 @@ class MyQlist(QListView):
     
     # dropEvent - some items have been moved around the desktop
     def dropEvent3(self, event):
-        model = self.model()
+        # already occupied cells
+        cells_taken = reserved_cells[:]
+        desktop_items = []
+        cells_taken_temp = []
+        #
+        with open("items_position", "r") as ff:
+            cells_taken_temp = ff.readlines()
+        #
+        for iitem in cells_taken_temp:
+            c,r,n = iitem.split("/")
+            cells_taken.append([int(c), int(r)])
+            desktop_items.append([int(c), int(r), n.strip("\n")])
+        # calculate the cell
         x = int(event.pos().x()/ITEM_WIDTH) * ITEM_WIDTH + LEFT_M
         y = int(event.pos().y()/ITEM_HEIGHT) * ITEM_HEIGHT + TOP_M
         col_x = int((x)/ITEM_WIDTH)
         col_y = int((y)/ITEM_HEIGHT)
+        #
+        if [col_x, col_y] in cells_taken:
+            event.ignore()
+            # reset
+            cells_taken = []
+            desktop_items = []
+            cells_taken_temp = []
+            self.item_idx = []
+            return
         if col_x <= num_col-1 and col_y <= num_row-1:
             self.setPositionForIndex(QPoint(x, y) , self.item_idx[0])
         else:
-            # reset
+            cells_taken = []
+            desktop_items = []
+            cells_taken_temp = []
             self.item_idx = []
             return
+        # rebuild the file
+        itemIdx = self.item_idx[0]
+        custom_data = itemIdx.data(Qt.UserRole+1)
+        if custom_data == "file":
+            item_name = itemIdx.data(0)
+        elif custom_data == "desktop":
+            item_name = itemIdx.data(Qt.UserRole+2)[0]
         # 
         with open("items_position", "w") as ff:
-            for row in range(model.rowCount()):
-                item_model = model.item(row)
-                # skip the special entries
-                custom_data = item_model.data(Qt.UserRole+1)
-                if custom_data in special_entries and custom_data != "desktop":
-                    continue
-                if custom_data == "file":
-                    item_name = item_model.data(0)
-                elif custom_data == "desktop":
-                    item_name = item_model.data(Qt.UserRole+2)[0]
-                item_rect = self.visualRect(item_model.index())
-                #
-                x1 = int(item_rect.x()/ITEM_WIDTH)
-                y1 = int(item_rect.y()/ITEM_HEIGHT)
-                if item_model:
-                    iitem = "{}/{}/{}\n".format(x1, y1, item_name)
-                    ff.write(iitem)
+            for iitem in desktop_items:
+                iname = iitem[2]
+                if iname == item_name:
+                    x = col_x
+                    y = col_y
+                else:
+                    x = iitem[0]
+                    y = iitem[1]
+                ditem = "{}/{}/{}\n".format(x, y, iname)
+                ff.write(ditem)
         # reset
+        cells_taken = []
+        desktop_items = []
+        cells_taken_temp = []
         self.item_idx = []
-    
-    
+        
+        
     # dropEvent
     def dropEvent2(self, event):
         dest_path = DDIR
@@ -579,7 +602,7 @@ class MyQlist(QListView):
 class passWord(QDialog):
     def __init__(self, path, parent):
         super(passWord, self).__init__(parent)
-        # self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
+        self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("7z extractor")
         self.setWindowModality(Qt.ApplicationModal)
         self.resize(600,100)
@@ -782,7 +805,7 @@ class itemDelegate(QItemDelegate):
         st = QStaticText(qstring)
         hh = st.size().height()
         return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
-
+        
 
 class thumbThread(threading.Thread):
     
@@ -825,7 +848,6 @@ class MainWin(QWidget):
                 self.desktop_items.remove(iitem)
         ##################
         self.listview = MyQlist()
-        # # self.listview.setUniformItemSizes(False)
         # disable the double clicking renaming
         self.listview.setEditTriggers(QAbstractItemView.NoEditTriggers)
         #
@@ -845,7 +867,6 @@ class MainWin(QWidget):
         self.listview.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.listview.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff) 
         #
-        # self.listview.setSpacing(ITEM_SPACE)
         self.listview.setSelectionMode(self.listview.ExtendedSelection)
         ### the model
         self.model = QStandardItemModel()
@@ -1113,6 +1134,7 @@ class MainWin(QWidget):
             if ret == -1:
                 MyDialog("Error", "The device cannot be turned off.", self)
                 return
+
         
     # self.eject_media1
     def on_eject(self, ddrive):
@@ -1156,6 +1178,7 @@ class MainWin(QWidget):
                 new_desktop_list.remove(iitem)
         return new_desktop_list
     
+    
     # send to trash the selected items
     def clickable2(self, widget):
         class Filter(QObject):
@@ -1170,6 +1193,7 @@ class MainWin(QWidget):
         filter = Filter(widget)
         widget.installEventFilter(filter)
         return filter.clicked
+    
     
     #  send to trash or delete the selected items - function
     def itemsToTrash(self):
@@ -1287,25 +1311,27 @@ class MainWin(QWidget):
     def addItem(self, new_desktop_list):
         for itd in new_desktop_list:
             if itd not in self.desktop_items:
+                time.sleep(1)
                 ireal_path = os.path.join(DDIR, itd)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                 if imime.name() == "application/x-desktop":
-                    # program name - icon - exec
+                    # program name - icon - exec - type
                     ddata = self.getDesktopData(ireal_path)
-                    dname = ddata[0]
-                    if ddata[1]:
-                        iicon = QIcon.fromTheme(ddata[1])
-                        if iicon.isNull():
+                    if ddata:
+                        dname = ddata[0]
+                        if ddata[1]:
+                            iicon = QIcon.fromTheme(ddata[1])
+                            if iicon.isNull():
+                                iicon = QIcon("icons/error2.svg")
+                        else:
                             iicon = QIcon("icons/error2.svg")
-                    else:
-                        iicon = QIcon("icons/error2.svg")
-                    dexec = ddata[2]
-                    item = QStandardItem(iicon, dname)
-                    item.setData("desktop", Qt.UserRole + 1)
-                    item.setData([itd, ddata[1], ddata[2]], Qt.UserRole + 2)
-                    self.model.appendRow(item)
-                    #
-                    self.itemSetPos(item)
+                        dexec = ddata[2]
+                        item = QStandardItem(iicon, dname)
+                        item.setData("desktop", Qt.UserRole + 1)
+                        item.setData([itd, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
+                        self.model.appendRow(item)
+                        #
+                        self.itemSetPos(item)
                 else:
                     iicon = self.setIcons(os.path.join(DDIR, itd))
                     item = QStandardItem(iicon, itd)
@@ -1320,11 +1346,23 @@ class MainWin(QWidget):
     
     # get the data from a desktop file
     def getDesktopData(self, dpath):
-        entry = DesktopEntry(dpath)
-        dname = entry.getName() # program name
-        dicon = entry.getIcon() # icon
-        dexec = entry.getExec() # executable
-        return [dname, dicon, dexec]
+        try:
+            entry = DesktopEntry(dpath)
+            dtype = entry.getType() # type: Application, Directory, Link
+            if dtype == "Application":
+                dname = entry.getName() # program name
+                dicon = entry.getIcon() # icon
+                dexec = entry.getExec() # executable
+                if dname and dexec:
+                    return [dname, dicon, dexec, dtype]
+            elif dtype == "Directory":
+                dname = entry.getName() # directory name
+                dicon = entry.getIcon() # icon
+                durl = entry.getURL() # url
+                if dname and durl:
+                    return [dname, dicon, durl, dtype]
+        except:
+            return None
         
         
     # remove item
@@ -1471,6 +1509,7 @@ class MainWin(QWidget):
                 item_rect = self.listview.visualRect(item_model.index())
                 x = int((item_rect.x()-LEFT_M)/ITEM_WIDTH)
                 y = int((item_rect.y()-TOP_M)/ITEM_HEIGHT)
+                # 
                 if item_model:
                     iitem = "{}/{}/{}\n".format(x, y, item_name)
                     ff.write(iitem)
@@ -1512,23 +1551,32 @@ class MainWin(QWidget):
                 ireal_path = os.path.join(DDIR, item_name)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                 if imime.name() == "application/x-desktop":
-                    # name - icon - exec
+                    # name - icon - exec - type
                     ddata = self.getDesktopData(ireal_path)
-                    dname = ddata[0]
-                    if ddata[1]:
-                        iicon = QIcon.fromTheme(ddata[1])
-                        if iicon.isNull():
-                            iicon = QIcon("icons/error2.svg")
+                    if ddata:
+                        dname = ddata[0]
+                        if ddata[1]:
+                            iicon = QIcon.fromTheme(ddata[1])
+                            if iicon.isNull():
+                                iicon = QIcon("icons/unknown.svg")
+                        else:
+                            iicon = QIcon("icons/unknown.svg")
+                        dexec = ddata[2]
+                        item = QStandardItem(iicon, dname)
+                        item.setData("desktop", Qt.UserRole + 1)
+                        item.setData([item_name, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
+                        self.model.appendRow(item)
+                        item_names.append(item_name)
+                    # set the desktop file as normal file
                     else:
-                        iicon = QIcon("icons/error2.svg")
-                    dexec = ddata[2]
-                    item = QStandardItem(iicon, dname)
-                    item.setData("desktop", Qt.UserRole + 1)
-                    item.setData([item_name, ddata[1], ddata[2]], Qt.UserRole + 2)
-                    self.model.appendRow(item)
-                    item_names.append(item_name)
+                        iicon = self.setIcons(os.path.join(DDIR, item_name))
+                        item = QStandardItem(iicon, item_name)
+                        # custom data
+                        item.setData("file", Qt.UserRole + 1)
+                        # add the item to the model
+                        self.model.appendRow(item)
+                        item_names.append(item_name)
                 else:
-                    #
                     iicon = self.setIcons(os.path.join(DDIR, item_name))
                     item = QStandardItem(iicon, item_name)
                     # custom data
@@ -1575,19 +1623,20 @@ class MainWin(QWidget):
                         ireal_path = os.path.join(DDIR, item_name)
                         imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                         if imime.name() == "application/x-desktop":
-                            # name - icon - exec
+                            # name - icon - exec - type
                             ddata = self.getDesktopData(ireal_path)
-                            dname = ddata[0]
-                            if ddata[1]:
-                                iicon = QIcon.fromTheme(ddata[1])
-                                if iicon.isNull():
+                            if ddata:
+                                dname = ddata[0]
+                                if ddata[1]:
+                                    iicon = QIcon.fromTheme(ddata[1])
+                                    if iicon.isNull():
+                                        iicon = QIcon("icons/error2.svg")
+                                else:
                                     iicon = QIcon("icons/error2.svg")
-                            else:
-                                iicon = QIcon("icons/error2.svg")
-                            dexec = ddata[2]
-                            item = QStandardItem(iicon, dname)
-                            item.setData("desktop", Qt.UserRole + 1)
-                            item.setData([item_name, ddata[1], ddata[2]], Qt.UserRole + 2)
+                                dexec = ddata[2]
+                                item = QStandardItem(iicon, dname)
+                                item.setData("desktop", Qt.UserRole + 1)
+                                item.setData([item_name, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
                         else:
                             iicon = self.setIcons(os.path.join(DDIR, item_name))
                             item = QStandardItem(iicon, item_name)
@@ -1642,6 +1691,7 @@ class MainWin(QWidget):
                     # repositioning if excede the screen limits
                     max_width = (num_col-1)*ITEM_WIDTH
                     max_height = (num_row-1)*ITEM_HEIGHT
+                    # 
                     if int(x)*ITEM_WIDTH > max_width or int(y)*ITEM_HEIGHT > max_height:
                         data = self.itemSetPos2()
                         items_changed = 1
@@ -1674,7 +1724,7 @@ class MainWin(QWidget):
                 itemIdx = self.listview.indexAt(event.pos())
                 item_rect = self.listview.visualRect(itemIdx)
                 # item selected at top-left
-                topLeft = QRect(item_rect.x(), item_rect.y(), CIRCLE_SIZE, CIRCLE_SIZE)
+                topLeft = QRect(item_rect.x()+int(ITEM_SPACE/2), item_rect.y(), CIRCLE_SIZE, CIRCLE_SIZE)
                 if event.pos() in topLeft:
                     self.static_items = True
                     self.listview.setSelectionMode(QAbstractItemView.MultiSelection)
@@ -2075,13 +2125,13 @@ class MainWin(QWidget):
         if MENU_H_COLOR:
             menu.setStyleSheet(self.csa)
         #
-        deleteAction = QAction("Delete", self)
-        deleteAction.triggered.connect(lambda:self.fdeleteDesktopAction(pointedItem))
-        menu.addAction(deleteAction)
-        menu.addSeparator()
         openAction = QAction("Launch", self)
         openAction.triggered.connect(lambda:self.flaunchDesktop(pointedItem))
         menu.addAction(openAction)
+        menu.addSeparator()
+        deleteAction = QAction("Delete", self)
+        deleteAction.triggered.connect(lambda:self.fdeleteDesktopAction(pointedItem))
+        menu.addAction(deleteAction)
         #
         menu.exec_(self.listview.mapToGlobal(position))
     
@@ -2099,14 +2149,28 @@ class MainWin(QWidget):
     def flaunchDesktop(self, index):
         # name - icon - exec
         ddata = index.data(Qt.UserRole+2)
-        dexec = ddata[2]
-        if shutil.which(dexec):
+        if ddata[3] == "Application":
+            dexec = ddata[2]
+            if shutil.which(dexec):
+                try:
+                    subprocess.Popen([dexec])
+                except Exception as E:
+                    MyDialog("Error", str(E), self)
+            else:
+                MyDialog("Info", "The program {} cannot be found.".format(dexec), self)
+        elif ddata[3] == "Directory":
             try:
-                subprocess.Popen([dexec])
+                dirpath = unquote(ddata[2])[7:]
+                if not os.path.exists(dirpath):
+                    MyDialog("Info", "The folder {} cannot be found.".format(os.path.basename(dirpath)), self)
+                    return
+                defApp = getDefaultApp(dirpath, self).defaultApplication()
+                if defApp != "None":
+                    subprocess.Popen([defApp, dirpath])
+                else:
+                    MyDialog("Info", "No programs found.", self)
             except Exception as E:
-                MyDialog("Error", str(E), self)
-        else:
-            MyDialog("Error", "The program {} cannot be found.".format(dexec), self)
+                MyDialog("ERROR", str(E), self)
     
     
     # 
