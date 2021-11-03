@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.4.8
+# Version 0.4.9
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -166,7 +166,7 @@ ITEM_HEIGHT += ITEM_SPACE
 num_col = 0 
 num_row = 0
 # reserved cells - items cannot be positioned there (type: indexes)
-reserved_cells = [[0, 0]]
+reserved_cells = []
 
 
 # get the folder size
@@ -478,7 +478,7 @@ class MyQlist(QListView):
             dialogList = ""
             for item in list_items:
                 dialogList += os.path.basename(item)+"\n"
-            ret = retDialogBox("Info", "Do you really want to move these items to the trashcan?", "", dialogList, self)
+            ret = retDialogBox("Info", "Do you really want to move these items to the trashcan?", "", dialogList, None)
             #
             if ret.getValue():
                 TrashModule(list_items, self)
@@ -1311,7 +1311,7 @@ class MainWin(QWidget):
     def addItem(self, new_desktop_list):
         for itd in new_desktop_list:
             if itd not in self.desktop_items:
-                time.sleep(1)
+                time.sleep(0.5)
                 ireal_path = os.path.join(DDIR, itd)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                 if imime.name() == "application/x-desktop":
@@ -1322,9 +1322,9 @@ class MainWin(QWidget):
                         if ddata[1]:
                             iicon = QIcon.fromTheme(ddata[1])
                             if iicon.isNull():
-                                iicon = QIcon("icons/error2.svg")
+                                iicon = QIcon("icons/unknown.svg")
                         else:
-                            iicon = QIcon("icons/error2.svg")
+                            iicon = QIcon("icons/unknown.svg")
                         dexec = ddata[2]
                         item = QStandardItem(iicon, dname)
                         item.setData("desktop", Qt.UserRole + 1)
@@ -1676,7 +1676,9 @@ class MainWin(QWidget):
             if item_model:
                 # the trashcan
                 if item_model.data(Qt.UserRole+1) == "trash":
-                    self.fSetPositionForIndex((0, 0), item_model.index())
+                    x = reserved_cells[0][0]
+                    y = reserved_cells[0][1]
+                    self.fSetPositionForIndex((x, y), item_model.index())
                 # the media devices
                 elif item_model.data(Qt.UserRole+1) == "media":
                     for mmedia in self.media_added:
@@ -2063,7 +2065,7 @@ class MainWin(QWidget):
     # self.trashSelected
     def femptyTrashAction(self):
         # empty the recycle bin
-        ret2 = retDialogBox2("Info", "Do you really want to empty the recycle bin?", self)
+        ret2 = retDialogBox("Info", "Do you really want to empty the recycle bin?", "", [], self)
         #
         if ret2.getValue():
             ret = trash_module.emptyTrash("HOME").tempty()
@@ -4208,7 +4210,7 @@ class pasteNmergeDialog(QDialog):
         self.close()
 
 
-# dialog - whit item list and return of the choise
+# dialog - with optional item list and return of the choise
 class retDialogBox(QMessageBox):
     def __init__(self, *args):
         super(retDialogBox, self).__init__(args[-1])
@@ -4218,49 +4220,8 @@ class retDialogBox(QMessageBox):
         self.resize(DIALOGWIDTH, 100)
         self.setText(args[1])
         self.setInformativeText(args[2])
-        self.setDetailedText("The details are as follows:\n\n"+args[3])
-        self.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
-        #
-        self.Value = None
-        retval = self.exec_()
-        #
-        if retval == QMessageBox.Yes:
-            self.Value = 1
-        elif retval == QMessageBox.Cancel:
-            self.Value = 0
-    
-    def getValue(self):
-        return self.Value
-    
-    def event(self, e):
-        result = QMessageBox.event(self, e)
-        #
-        self.setMinimumHeight(0)
-        self.setMaximumHeight(16777215)
-        self.setMinimumWidth(0)
-        self.setMaximumWidth(16777215)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        #
-        textEdit = self.findChild(QTextEdit)
-        if textEdit != None :
-            textEdit.setMinimumHeight(0)
-            textEdit.setMaximumHeight(16777215)
-            textEdit.setMinimumWidth(0)
-            textEdit.setMaximumWidth(16777215)
-            textEdit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        #
-        return result
-
-
-# dialog with ok-cancel
-class retDialogBox2(QMessageBox):
-    def __init__(self, *args):
-        super(retDialogBox2, self).__init__(args[-1])
-        self.setIcon(QMessageBox.Information)
-        self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
-        self.setWindowTitle(args[0])
-        self.resize(DIALOGWIDTH, 100)
-        self.setText(args[1])
+        if args[3]:
+            self.setDetailedText("The details are as follows:\n\n"+args[3])
         self.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         #
         self.Value = None
@@ -4353,27 +4314,35 @@ class MyMessageBox(QMessageBox):
         return result
 
 
-# simple info dialog
-class MyDialog(QDialog):
+# dialog message with info list
+# type - message - parent
+class MyDialog(QMessageBox):
     def __init__(self, *args):
         super(MyDialog, self).__init__(args[-1])
+        if args[0] == "Info":
+            self.setIcon(QMessageBox.Information)
+        elif args[0] == "Error":
+            self.setIcon(QMessageBox.Critical)
+        elif args[0] == "Question":
+            self.setIcon(QMessageBox.Question)
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle(args[0])
-        self.setWindowModality(Qt.ApplicationModal)
         self.resize(DIALOGWIDTH,300)
+        self.setText(args[1])
+        self.setStandardButtons(QMessageBox.Ok)
+        retval = self.exec_()
+    
+    def event(self, e):
+        result = QMessageBox.event(self, e)
         #
-        grid = QGridLayout()
-        grid.setContentsMargins(5,5,5,5)
+        self.setMinimumHeight(0)
+        self.setMaximumHeight(16777215)
+        self.setMinimumWidth(0)
+        self.setMaximumWidth(16777215)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         #
-        label = clabel2()
-        label.setText(args[1], self.size().width()-12)
-        #
-        button_ok = QPushButton("     Ok     ")
-        grid.addWidget(label, 0, 1, 1, 3, Qt.AlignCenter)
-        grid.addWidget(button_ok, 1, 1, 1, 3, Qt.AlignHCenter)
-        self.setLayout(grid)
-        button_ok.clicked.connect(self.close)
-        self.exec_()
+        return result
+
 
 ###################
 
@@ -4495,6 +4464,8 @@ if __name__ == '__main__':
     # number of columns and rows
     num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH)
     num_row = int((WINH-TOP_M-BOTTOM_M)/ITEM_HEIGHT)
+    # reserved cells - items cannot be positioned there (type: indexes)
+    reserved_cells = [[0, num_row-1]]
     num_col_rest = int((WINW-LEFT_M-RIGHT_M)%ITEM_WIDTH)
     num_row_rest = int((WINH-TOP_M-BOTTOM_M)%ITEM_HEIGHT)
     LEFT_M += int(num_col_rest/2)
