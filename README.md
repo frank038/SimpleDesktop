@@ -7,6 +7,8 @@ Create the empty file "items_position" in the program folder or use the tar pack
 
 This program shows the content of the folder "Desktop". The name can be changed in the config file.
 
+To open the recycle bin, the command have to be written in the file trash_command.sh. Make sure to make this file executable. Must be executable also the files qt5desktop.py and qt5desktop.sh. Both can be used to launch this program. qt5desktop.sh is raccomanded.
+
 Personalizations in the config file.
 
 The trashcan change its icon to reflect its state, empty or not empty. The Recycle Bin space is reserved and exclusive. To use a wallpaper, just put an image named wallpaper.jpg at the exactly screen sizes in the program folder.
