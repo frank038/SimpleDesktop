@@ -11,9 +11,9 @@ Personalizations in the config file.
 
 The trashcan change its icon to reflect its state, empty or not empty. The Recycle Bin space is reserved and exclusive. To use a wallpaper, just put an image named wallpaper.jpg at the exactly screen sizes in the program folder.
 
-Can handle desktop files (programs). Accept files from my Qt5archiver program.
+Can handle desktop files (programs, directories and files as link). Using desktop files for folders and files don't let user manage directly them. Actually they can be created with my program SimpleFM. Accept files from my Qt5archiver program.
 
-Limitations: only one item at time can change its position on the desktop.
+Limitations: only one item at time can change its position on the desktop. The desktop file cannot be copied, they can only created and deleted.
 
 Needed:
 - python3
