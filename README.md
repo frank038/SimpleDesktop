@@ -1,9 +1,11 @@
 # SimpleDesktop
 A simple and lite desktop manager.
 
-Version 0.4.9 (testing)
+Version 0.5.0 (testing)
 
 Create the empty file "items_position" in the program folder or use the tar packed version.
+
+This program shows the content of the folder "Desktop". The name can be changed in the config file.
 
 Personalizations in the config file.
 
