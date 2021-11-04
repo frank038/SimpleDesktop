@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.4.9
+# Version 0.5.0
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -212,20 +212,24 @@ class MyQlist(QListView):
         for index in self.selectionModel().selectedIndexes():
             if index.data(Qt.UserRole+1) == "file":
                 filepath = os.path.join(DDIR, index.data(0))
-            elif index.data(Qt.UserRole+1) == "desktop":
-                dname = index.data(Qt.UserRole+2)[0]
-                filepath = os.path.join(DDIR, dname)
-            try:
+                #
                 # regular files or folders (not fifo, etc.)
                 if stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode) or stat.S_ISLNK(os.stat(filepath).st_mode):
                     item_list.append(QUrl.fromLocalFile(filepath))
                     self.item_idx.append(index)
                 else:
                     continue
-            except:
-                continue
-        #
+                #
+            elif index.data(Qt.UserRole+1) == "desktop":
+                if len(self.selectionModel().selectedIndexes()) > 1:
+                    continue
+                dname = index.data(Qt.UserRole+2)[0]
+                filepath = os.path.join(DDIR, dname)
+                item_list.append(QUrl.fromLocalFile(filepath))
+                self.item_idx.append(index)
+        # 
         drag = QDrag(self)
+        # 
         if len(item_list) > 1:
             if not USE_EXTENDED_DRAG_ICON:
                 pixmap = QPixmap("icons/items_multi.png").scaled(ICON_SIZE, ICON_SIZE, Qt.KeepAspectRatio, Qt.FastTransformation)
@@ -270,7 +274,8 @@ class MyQlist(QListView):
                                 break
                     else:
                         continue
-                painter.end()
+                if painter:
+                    painter.end()
         elif len(item_list) == 1:
             try:
                 index = self.item_idx[0]
@@ -478,7 +483,7 @@ class MyQlist(QListView):
             dialogList = ""
             for item in list_items:
                 dialogList += os.path.basename(item)+"\n"
-            ret = retDialogBox("Info", "Do you really want to move these items to the trashcan?", "", dialogList, None)
+            ret = retDialogBox("Question", "Do you really want to move these items to the trashcan?", "", dialogList, None)
             #
             if ret.getValue():
                 TrashModule(list_items, self)
@@ -605,7 +610,7 @@ class passWord(QDialog):
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("7z extractor")
         self.setWindowModality(Qt.ApplicationModal)
-        self.resize(600,100)
+        self.resize(DIALOGWIDTH,100)
         #
         self.path = path
         # main box
@@ -1126,13 +1131,13 @@ class MainWin(QWidget):
         #
         ret = self.on_eject(ddrive)
         if ret == -1:
-            MyDialog("Error", "The device cannot be ejected.", self)
+            MyDialog("Info", "The device cannot be ejected.", self)
             return
         #
         if can_poweroff:
             ret = self.on_poweroff(ddrive)
             if ret == -1:
-                MyDialog("Error", "The device cannot be turned off.", self)
+                MyDialog("Info", "The device cannot be turned off.", self)
                 return
 
         
@@ -1142,9 +1147,8 @@ class MainWin(QWidget):
         objpath  = ddrive
         intfname = 'org.freedesktop.UDisks2.Drive'
         try:
-            bus = dbus.SystemBus()
             methname = 'Eject'
-            obj  = bus.get_object(progname, objpath)
+            obj  = self.bus.get_object(progname, objpath)
             intf = dbus.Interface(obj, intfname)
             ret = intf.get_dbus_method(methname, dbus_interface='org.freedesktop.UDisks2.Drive')([])
             return ret
@@ -1158,9 +1162,8 @@ class MainWin(QWidget):
         objpath  = ddrive
         intfname = 'org.freedesktop.UDisks2.Drive'
         try:
-            bus = dbus.SystemBus()
             methname = 'PowerOff'
-            obj  = bus.get_object(progname, objpath)
+            obj  = self.bus.get_object(progname, objpath)
             intf = dbus.Interface(obj, intfname)
             ret = intf.get_dbus_method(methname, dbus_interface='org.freedesktop.UDisks2.Drive')([])
             return ret
@@ -1216,7 +1219,7 @@ class MainWin(QWidget):
             try:
                 subprocess.Popen(["./trash_command.sh"])
             except Exception as E:
-                MyDialog("Info", str(E), self)
+                MyDialog("Error", str(E), self)
             return
         # the media devices
         elif index.data(Qt.UserRole+1) == "media":
@@ -1235,11 +1238,11 @@ class MainWin(QWidget):
                     if defApp != "None":
                         subprocess.Popen([defApp, path])
                     else:
-                        MyDialog("Error", "No programs found.", self)
+                        MyDialog("Info", "No programs found.", self)
                 except Exception as E:
-                    MyDialog("ERROR", str(E), self)
+                    MyDialog("Error", str(E), self)
             else:
-                MyDialog("ERROR", path+"\n\n   Not readable", self)
+                MyDialog("Error", path+"\n\n   Not readable", self)
         #
         elif os.path.isfile(path):
             perms = QFileInfo(path).permissions()
@@ -1267,10 +1270,10 @@ class MainWin(QWidget):
                 except Exception as E:
                     MyDialog("Error", str(E), self)
             else:
-                MyDialog("Error", "No programs found.", self)
+                MyDialog("Info", "No programs found.", self)
         
     
-    # some applications has been added or removed
+    # some applications have been added or removed
     def directory_changed(self, edir):
         if edir == TRASH_PATH:
             tmp = os.listdir(TRASH_PATH)
@@ -1315,20 +1318,51 @@ class MainWin(QWidget):
                 ireal_path = os.path.join(DDIR, itd)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                 if imime.name() == "application/x-desktop":
-                    # program name - icon - exec - type
+                    # program name - icon - exec/URL - type (Application/Directory/Link)
                     ddata = self.getDesktopData(ireal_path)
                     if ddata:
                         dname = ddata[0]
+                        # 
                         if ddata[1]:
-                            iicon = QIcon.fromTheme(ddata[1])
-                            if iicon.isNull():
-                                iicon = QIcon("icons/unknown.svg")
+                            if ddata[3] == "Application":
+                                iicon = QIcon.fromTheme(ddata[1])
+                                if iicon.isNull():
+                                    iicon = QIcon(ddata[1])
+                                    if iicon.isNull():
+                                        iicon = QIcon("icons/unknown.svg")
+                            elif ddata[3] == "Directory":
+                                iicon = QIcon.fromTheme(ddata[1])
+                                if iicon.isNull():
+                                    iicon = QIcon(ddata[1])
+                                    if iicon.isNull():
+                                        iicon = QIcon("icons/unknown.svg")
+                            elif ddata[3] == "Link":
+                                iicon = QIcon(ddata[1])
+                                if iicon.isNull():
+                                    iicon = QIcon("icons/unknown.svg")
                         else:
-                            iicon = QIcon("icons/unknown.svg")
+                            if ddata[3] == "Link":
+                                imime = QMimeDatabase().mimeTypeForFile(ddata[2][7:], QMimeDatabase.MatchDefault)
+                                imime_name = imime.iconName()
+                                iicon = QIcon.fromTheme(imime_name, QIcon("icons/unknown.svg"))
+                            elif ddata[3] == "Directory":
+                                iicon = QIcon("icons/unknown.svg")
+                        # 
                         dexec = ddata[2]
                         item = QStandardItem(iicon, dname)
                         item.setData("desktop", Qt.UserRole + 1)
                         item.setData([itd, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
+                        # if ddata[3] == "Directory" or ddata[3] == "Link":
+                            # item.setData(ddata[2][7:], Qt.ToolTipRole)
+                        self.model.appendRow(item)
+                        #
+                        self.itemSetPos(item)
+                    # set the desktop file as normal file
+                    else:
+                        iicon = self.setIcons(os.path.join(DDIR, itd))
+                        item = QStandardItem(iicon, itd)
+                        item.setData("file", Qt.UserRole + 1)
+                        # Add the item to the model
                         self.model.appendRow(item)
                         #
                         self.itemSetPos(item)
@@ -1355,7 +1389,7 @@ class MainWin(QWidget):
                 dexec = entry.getExec() # executable
                 if dname and dexec:
                     return [dname, dicon, dexec, dtype]
-            elif dtype == "Directory":
+            elif dtype == "Directory" or dtype == "Link":
                 dname = entry.getName() # directory name
                 dicon = entry.getIcon() # icon
                 durl = entry.getURL() # url
@@ -1412,6 +1446,7 @@ class MainWin(QWidget):
         for row in range(self.model.rowCount()):
             item_model = self.model.item(row)
             if item_model.data(0) == old_item:
+                #  DisplayRole, DecorationRole
                 item_model.setData(new_item, Qt.DisplayRole)
         # update the file
         items_position = []
@@ -1551,20 +1586,41 @@ class MainWin(QWidget):
                 ireal_path = os.path.join(DDIR, item_name)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                 if imime.name() == "application/x-desktop":
-                    # name - icon - exec - type
+                    # name - icon - exec/URL - type (Application/Directory/Link)
                     ddata = self.getDesktopData(ireal_path)
                     if ddata:
                         dname = ddata[0]
                         if ddata[1]:
-                            iicon = QIcon.fromTheme(ddata[1])
-                            if iicon.isNull():
-                                iicon = QIcon("icons/unknown.svg")
+                            if ddata[3] == "Application":
+                                iicon = QIcon.fromTheme(ddata[1])
+                                if iicon.isNull():
+                                    iicon = QIcon(ddata[1])
+                                    if iicon.isNull():
+                                        iicon = QIcon("icons/unknown.svg")
+                            elif ddata[3] == "Directory":
+                                iicon = QIcon.fromTheme(ddata[1])
+                                if iicon.isNull():
+                                    iicon = QIcon(ddata[1])
+                                    if iicon.isNull():
+                                        iicon = QIcon("icons/unknown.svg")
+                            elif ddata[3] == "Link":
+                                iicon = QIcon(ddata[1])
+                                if iicon.isNull():
+                                    iicon = QIcon("icons/unknown.svg")
                         else:
-                            iicon = QIcon("icons/unknown.svg")
+                            if ddata[3] == "Link":
+                                imime = QMimeDatabase().mimeTypeForFile(ddata[2][7:], QMimeDatabase.MatchDefault)
+                                imime_name = imime.iconName()
+                                iicon = QIcon.fromTheme(imime_name, QIcon("icons/unknown.svg"))
+                            elif ddata[3] == "Directory":
+                                iicon = QIcon("icons/unknown.svg")
+                        # 
                         dexec = ddata[2]
                         item = QStandardItem(iicon, dname)
                         item.setData("desktop", Qt.UserRole + 1)
                         item.setData([item_name, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
+                        # if ddata[3] == "Directory" or ddata[3] == "Link":
+                            # item.setData(ddata[2][7:], Qt.ToolTipRole)
                         self.model.appendRow(item)
                         item_names.append(item_name)
                     # set the desktop file as normal file
@@ -1623,20 +1679,44 @@ class MainWin(QWidget):
                         ireal_path = os.path.join(DDIR, item_name)
                         imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                         if imime.name() == "application/x-desktop":
-                            # name - icon - exec - type
+                            # name - icon - exec/URL - type
                             ddata = self.getDesktopData(ireal_path)
                             if ddata:
                                 dname = ddata[0]
-                                if ddata[1]:
+                                # 
+                                if ddata[3] == "Application":
                                     iicon = QIcon.fromTheme(ddata[1])
                                     if iicon.isNull():
-                                        iicon = QIcon("icons/error2.svg")
+                                        iicon = QIcon(ddata[1])
+                                        if iicon.isNull():
+                                            iicon = QIcon("icons/unknown.svg")
+                                elif ddata[1]:
+                                    if ddata[3] == "Directory":
+                                        iicon = QIcon.fromTheme(ddata[1])
+                                        if iicon.isNull():
+                                            iicon = QIcon(ddata[1])
+                                            if iicon.isNull():
+                                                iicon = QIcon("icons/unknown.svg")
+                                    elif ddata[3] == "Link":
+                                        iicon = QIcon(ddata[1])
+                                        if iicon.isNull():
+                                            iicon = QIcon("icons/unknown.svg")
                                 else:
-                                    iicon = QIcon("icons/error2.svg")
+                                    if ddata[3] == "Link":
+                                        imime = QMimeDatabase().mimeTypeForFile(ddata[2][7:], QMimeDatabase.MatchDefault)
+                                        imime_name = imime.iconName()
+                                        iicon = QIcon.fromTheme(imime_name, QIcon("icons/unknown.svg"))
+                                    elif ddata[3] == "Directory":
+                                        iicon = QIcon("icons/unknown.svg")
+                                # 
                                 dexec = ddata[2]
                                 item = QStandardItem(iicon, dname)
                                 item.setData("desktop", Qt.UserRole + 1)
                                 item.setData([item_name, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
+                            else:
+                                iicon = self.setIcons(os.path.join(DDIR, item_name))
+                                item = QStandardItem(iicon, item_name)
+                                item.setData("file", Qt.UserRole + 1)
                         else:
                             iicon = self.setIcons(os.path.join(DDIR, item_name))
                             item = QStandardItem(iicon, item_name)
@@ -2060,20 +2140,20 @@ class MainWin(QWidget):
         try:
             subprocess.Popen(["./trash_command.sh"])
         except Exception as E:
-            MyDialog("Info", str(E), self)
+            MyDialog("Error", str(E), self)
     
     # self.trashSelected
     def femptyTrashAction(self):
         # empty the recycle bin
-        ret2 = retDialogBox("Info", "Do you really want to empty the recycle bin?", "", [], self)
+        ret2 = retDialogBox("Question", "Do you really want to empty the recycle bin?", "", [], self)
         #
         if ret2.getValue():
             ret = trash_module.emptyTrash("HOME").tempty()
             if ret == -2:
-                MyDialog("ERROR", "The Recycle Bin cannot be empty.\nDo it manually.", self)
+                MyDialog("Error", "The Recycle Bin cannot be empty.\nDo it manually.", self)
                 return
             if ret == -1:
-                MyDialog("ERROR", "Error with some files in the Recycle Bin.\nTry to remove them manually.", self)
+                MyDialog("Error", "Error with some files in the Recycle Bin.\nTry to remove them manually.", self)
     
     
     # media devices menu
@@ -2109,11 +2189,11 @@ class MainWin(QWidget):
                 if defApp != "None":
                     subprocess.Popen([defApp, path])
                 else:
-                    MyDialog("Error", "No programs found.", self)
+                    MyDialog("Info", "No programs found.", self)
             except Exception as E:
-                MyDialog("ERROR", str(E), self)
+                MyDialog("Error", str(E), self)
         else:
-            MyDialog("ERROR", path+"\n\n   Not readable", self)
+            MyDialog("Error", path+"\n\n   Not readable", self)
     
     # self.mediaSelected
     def fejectMediaAction(self, index):
@@ -2127,13 +2207,23 @@ class MainWin(QWidget):
         if MENU_H_COLOR:
             menu.setStyleSheet(self.csa)
         #
-        openAction = QAction("Launch", self)
+        # name - icon - exec - type
+        ddata = pointedItem.data(Qt.UserRole+2)
+        if ddata[3] == "Application":
+            openAction = QAction("Launch", self)
+        elif ddata[3] in ["Directory", "Link"]:
+            openAction = QAction("Open", self)
         openAction.triggered.connect(lambda:self.flaunchDesktop(pointedItem))
         menu.addAction(openAction)
         menu.addSeparator()
         deleteAction = QAction("Delete", self)
         deleteAction.triggered.connect(lambda:self.fdeleteDesktopAction(pointedItem))
         menu.addAction(deleteAction)
+        if ddata[3] in ["Directory", "Link"]:
+            menu.addSeparator()
+            pathAction = QAction("Path", self)
+            pathAction.triggered.connect(lambda:MyDialog("Info", ddata[2][7:] , self))
+            menu.addAction(pathAction)
         #
         menu.exec_(self.listview.mapToGlobal(position))
     
@@ -2144,12 +2234,12 @@ class MainWin(QWidget):
         try:
             os.remove(dpath)
         except Exception as E:
-            MyDialog("Info", str(E), self)
+            MyDialog("Error", str(E), self)
     
     
     # launch a program from its desktop file
     def flaunchDesktop(self, index):
-        # name - icon - exec
+        # name - icon - exec - type
         ddata = index.data(Qt.UserRole+2)
         if ddata[3] == "Application":
             dexec = ddata[2]
@@ -2160,7 +2250,7 @@ class MainWin(QWidget):
                     MyDialog("Error", str(E), self)
             else:
                 MyDialog("Info", "The program {} cannot be found.".format(dexec), self)
-        elif ddata[3] == "Directory":
+        elif ddata[3] == "Directory" or ddata[3] == "Link":
             try:
                 dirpath = unquote(ddata[2])[7:]
                 if not os.path.exists(dirpath):
@@ -2172,8 +2262,7 @@ class MainWin(QWidget):
                 else:
                     MyDialog("Info", "No programs found.", self)
             except Exception as E:
-                MyDialog("ERROR", str(E), self)
-    
+                MyDialog("Error", str(E), self)
     
     # 
     def ficustomAction(self, el, menuType):
@@ -2225,7 +2314,7 @@ class MainWin(QWidget):
                 except Exception as E:
                     MyDialog("Error", str(E), self)
             else:
-                MyDialog("Error", "The program\n"+ret+"\ncannot be found", self)
+                MyDialog("Info", "The program\n"+ret+"\ncannot be found", self)
     
     
     #
@@ -2276,7 +2365,7 @@ class MainWin(QWidget):
             dialogList = ""
             for item in list_items:
                 dialogList += os.path.basename(item)+"\n"
-            ret = retDialogBox("Info", "Do you really want to move these items to the trashcan?", "", dialogList, self)
+            ret = retDialogBox("Question", "Do you really want to move these items to the trashcan?", "", dialogList, self)
             #
             if ret.getValue():
                 TrashModule(list_items, self)
@@ -2293,7 +2382,7 @@ class MainWin(QWidget):
             dialogList = ""
             for item in list_items:
                 dialogList += os.path.basename(item)+"\n"
-            ret = retDialogBox("Info", "Do you really want to delete these items?", "", dialogList, self)
+            ret = retDialogBox("Question", "Do you really want to delete these items?", "", dialogList, self)
             #
             if ret.getValue():
                 self.fdeleteItems(list_items)
@@ -4214,9 +4303,14 @@ class pasteNmergeDialog(QDialog):
 class retDialogBox(QMessageBox):
     def __init__(self, *args):
         super(retDialogBox, self).__init__(args[-1])
-        self.setIcon(QMessageBox.Information)
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle(args[0])
+        if args[0] == "Info":
+            self.setIcon(QMessageBox.Information)
+        elif args[0] == "Error":
+            self.setIcon(QMessageBox.Critical)
+        elif args[0] == "Question":
+            self.setIcon(QMessageBox.Question)
         self.resize(DIALOGWIDTH, 100)
         self.setText(args[1])
         self.setInformativeText(args[2])
@@ -4314,7 +4408,7 @@ class MyMessageBox(QMessageBox):
         return result
 
 
-# dialog message with info list
+# simple dialog message
 # type - message - parent
 class MyDialog(QMessageBox):
     def __init__(self, *args):
@@ -4340,7 +4434,7 @@ class MyDialog(QMessageBox):
         self.setMinimumWidth(0)
         self.setMaximumWidth(16777215)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        #
+        # 
         return result
 
 
@@ -4382,19 +4476,19 @@ class TrashModule():
                     os.mkdir(self.Tinfo, 0o700)
                     self.can_trash = 1
                 except Exception as E:
-                    MyDialog("ERROR", str(E), self.window)
+                    MyDialog("Error", str(E), self.window)
                     return
                 finally:
                     return
             else:
-                MyDialog("ERROR", "Cannot create the Trash folder.", self.window)
+                MyDialog("Error", "Cannot create the Trash folder.", self.window)
                 return
         #
         if not os.access(self.Tfiles, os.W_OK):
-            MyDialog("ERROR", "Cannot create the files folder.", self.window)
+            MyDialog("Error", "Cannot create the files folder.", self.window)
             return
         if not os.access(self.Tinfo, os.W_OK):
-            MyDialog("ERROR", "Cannot create the info folder.", self.window)
+            MyDialog("Error", "Cannot create the info folder.", self.window)
             return
         #
         if os.access(self.trash_path, os.W_OK):
@@ -4402,21 +4496,21 @@ class TrashModule():
                 try:
                     os.mkdir(self.Tfiles, 0o700)
                 except Exception as E:
-                    MyDialog("ERROR", str(E), self.window)
+                    MyDialog("Error", str(E), self.window)
                     return
             #
             if not os.path.exists(self.Tinfo):
                 try:
                     os.mkdir(self.Tinfo, 0o700)
                 except Exception as E:
-                    MyDialog("ERROR", str(E), self.window)
+                    MyDialog("Error", str(E), self.window)
                     return
             #
             self.can_trash = 1
             return
         #
         else:
-            MyDialog("ERROR", "The Trash folder has wrong permissions.", self.window)
+            MyDialog("Error", "The Trash folder has wrong permissions.", self.window)
             return
         
     def Tcan_trash(self, list_items):
@@ -4438,7 +4532,7 @@ class TrashModule():
             try:
                 shutil.move(item_path, os.path.join(self.Tfiles, item))
             except Exception as E:
-                MyDialog("ERROR", str(E), self.window)
+                MyDialog("Error", str(E), self.window)
                 continue
             ifile = open(os.path.join(self.Tinfo, "{}.trashinfo".format(item)),"w")
             ifile.write("[Trash Info]\n")

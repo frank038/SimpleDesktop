@@ -111,9 +111,13 @@ class getMenu():
                             continue
                         # item.name
                         fname = entry.getName()
+                        # item.path
+                        # fpath
                         # category
                         ccat = entry.getCategories()
                         fcategory = self.get_category(ccat)
+                        ## item.name.lower()
+                        # fname_lower = fname.lower()
                         # pexec (executable)
                         fexec = entry.getExec()
                         if fexec[0:5] == "$HOME":
@@ -167,6 +171,3 @@ class getMenu():
                 return "Education"
             elif cccat in self.system_extended_categories:
                 return "System"
-            # # ???
-            # else:
-                # return "Missed"

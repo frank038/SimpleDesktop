@@ -24,7 +24,7 @@ def mmodule_type(listview):
             return 1
         else:
             return 0
-            
+
 
 class checkSum(QDialog):
     def __init__(self, path, parent=None):
