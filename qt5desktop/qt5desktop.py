@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.0
+# Version 0.5.1
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -3882,9 +3882,11 @@ class copyThread2(QThread):
             # item is dir and not link to dir
             if os.path.isdir(dfile) and not os.path.islink(dfile):
                 tdest = os.path.join(self.pathdest, os.path.basename(dfile))
-                # trying to copy a dir into itself
-                if dfile == os.path.dirname(tdest):
-                    items_skipped += "Same folder:\n{}.".format(os.path.basename(dfile))
+                # recursive copying
+                len_dfile = len(dfile)
+                if tdest[0:len_dfile] == dfile and not tdest == dfile:
+                    items_skipped += "Recursive copying:\n{}".format(os.path.basename(dfile))
+                    continue
                 # it isnt the exactly same item
                 elif dfile != tdest:
                     #
