@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.1
+# Version 0.5.2
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -810,7 +810,7 @@ class itemDelegate(QItemDelegate):
         st = QStaticText(qstring)
         hh = st.size().height()
         return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
-        
+
 
 class thumbThread(threading.Thread):
     
@@ -1135,10 +1135,13 @@ class MainWin(QWidget):
             return
         #
         if can_poweroff:
-            ret = self.on_poweroff(ddrive)
-            if ret == -1:
-                MyDialog("Info", "The device cannot be turned off.", self)
-                return
+            try:
+                ret = self.on_poweroff(ddrive)
+                # if ret == -1:
+                    # MyDialog("Info", "The device cannot be turned off.", self)
+                    # return
+            except:
+                pass
 
         
     # self.eject_media1
@@ -1231,6 +1234,11 @@ class MainWin(QWidget):
             return
         #
         path = os.path.join(DDIR, index.data(0))
+        #
+        if not os.path.exists(path):
+            MyDialog("Info", "It doesn't exist.", self.window)
+            return
+        #
         if os.path.isdir(path):
             if os.access(path, os.R_OK):
                 try:
@@ -1922,6 +1930,11 @@ class MainWin(QWidget):
                 menu.setStyleSheet(self.csa)
             #
             ipath = os.path.join(DDIR, itemName)
+            #
+            if not os.path.exists(ipath):
+                MyDialog("Info", "It doesn't exist.", self)
+                return
+            #
             if self.selection != None:
                 if len(self.selection) == 1:
                     if os.path.isfile(ipath):
@@ -2037,6 +2050,11 @@ class MainWin(QWidget):
             menu.exec_(self.listview.mapToGlobal(position))
         ## background
         else:
+            #
+            if not os.path.exists(DDIR):
+                MyDialog("Info", "It doesn't exist.", self)
+                return
+            #
             self.listview.clearSelection()
             menu = QMenu("Menu", self.listview)
             if MENU_H_COLOR:
