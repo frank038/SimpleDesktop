@@ -1,7 +1,7 @@
 # SimpleDesktop
 A simple and lite desktop manager.
 
-Version 0.5.2 (testing)
+Version 0.5.3 (testing)
 
 Create the empty file "items_position" in the program folder or use the tar packed version.
 
@@ -25,6 +25,7 @@ Needed:
 For media devices (option):
 - dbus
 - pyudev
+- notify-send (optional for desktop notification after a device has been ejected)
 
 For custom actions (option):
 - 7z
