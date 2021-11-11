@@ -63,6 +63,8 @@ USE_TRASH=1
 TRASH_NAME="Recycle Bin"
 # load the media: 0 no - 1 yes
 USE_MEDIA=0
+# use desktop notification throu notify-send after a media is been removed: 0 not - 1 yes
+USE_MEDIA_NOTIFICATION=0
 # Paste and Merge, how to backup the new files: 0 add progressive number
 # in the form _(#) - 1 add date and time (without checking eventually
 # existing file at destination with same date and time suffix) 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.2
+# Version 0.5.3
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -30,7 +30,6 @@ class firstMessage(QWidget):
         title = args[0]
         message = args[1]
         self.setWindowTitle(title)
-        # self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         box = QBoxLayout(QBoxLayout.TopToBottom)
         box.setContentsMargins(5,5,5,5)
         self.setLayout(box)
@@ -1029,6 +1028,7 @@ class MainWin(QWidget):
         item = QStandardItem(iicon, iitem)
         item.setData("media", Qt.UserRole+1)
         item.setData(ddevice, Qt.UserRole+2)
+        item.setData(ttype, Qt.UserRole+3)
         self.model.appendRow(item)
         # set the position
         self.itemSetPos(item)
@@ -1038,12 +1038,14 @@ class MainWin(QWidget):
     
     # remove the device from the model and view
     def removeMedia(self, ddevice):
-        time.sleep(2)
+        time.sleep(1)
         for row in range(self.model.rowCount()):
             iitem = self.model.item(row)
             if iitem.data(Qt.UserRole+1) == "media":
                 if iitem.data(Qt.UserRole+2) == ddevice:
                     item_idx = None
+                    item_display_name = iitem.data(Qt.DisplayRole)
+                    item_icon_type = iitem.data(Qt.UserRole+3)
                     for mm in range(len(self.media_added)):
                         if self.media_added[mm][1].data(Qt.UserRole+2) == ddevice:
                             iitem_idx = mm
@@ -1054,6 +1056,25 @@ class MainWin(QWidget):
                         del self.media_added[mm]
                         # restore the positions
                         self.listviewRestore2()
+                        #
+                        if USE_MEDIA and USE_MEDIA_NOTIFICATION:
+                            if shutil.which("notify-send"):
+                                icon_path = os.path.join(os.getcwd(), "icons/drive-harddisk.svg")
+                                if item_icon_type:
+                                    if item_icon_type == "flash-ms":
+                                        item_icon = "icons/media-flash.svg"
+                                    elif item_icon_type == "thumb":
+                                        item_icon = "icons/drive-thumb.svg"
+                                    elif item_icon_type == "disk":
+                                        item_icon = "icons/drive-harddisk.svg"
+                                    elif item_icon_type == "cd":
+                                        item_icon = "icons/media-optical.svg"
+                                    else:
+                                        item_icon = "icons/drive-harddisk.svg"
+                                    icon_path = os.path.join(os.getcwd(), item_icon)
+                                # 
+                                command = ["notify-send", "-i", icon_path, "-t", "3000", "-u", "normal", item_display_name, "Disconnected"]
+                            subprocess.Popen(command)
     
     
     # get the device mount point
