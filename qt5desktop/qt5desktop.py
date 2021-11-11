@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.3
+# Version 0.5.4
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -809,7 +809,7 @@ class itemDelegate(QItemDelegate):
         st = QStaticText(qstring)
         hh = st.size().height()
         return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
-
+        
 
 class thumbThread(threading.Thread):
     
@@ -857,6 +857,7 @@ class MainWin(QWidget):
         #
         self.selection = None
         self.vbox.addWidget(self.listview)
+        self.listview.hide()
         self.listview.setViewMode(QListView.IconMode)
         self.listview.setFlow(QListView.TopToBottom)
         #
@@ -942,6 +943,9 @@ class MainWin(QWidget):
             self.media_signal.connect(self.signal_media)
             # the devices at program launch
             self.on_media_detected()
+        # 
+        time.sleep(1)
+        self.listview.show()
     
     
     ######################### devices ########################
@@ -1015,15 +1019,16 @@ class MainWin(QWidget):
             return
         #
         if ttype == "flash-ms":
-            iicon = QIcon("icons/media-flash.svg")
+            iicon_type = "icons/media-flash.svg"
         elif ttype == "thumb":
-            iicon = QIcon("icons/drive-thumb.svg")
+            iicon_type = "icons/drive-thumb.svg"
         elif ttype == "disk":
-            iicon = QIcon("icons/drive-harddisk.svg")
+            iicon_type = "icons/drive-harddisk.svg"
         elif ttype == "cd":
-            iicon = QIcon("icons/media-optical.svg")
+            iicon_type = "icons/media-optical.svg"
         else:
-            iicon = QIcon("icons/drive-harddisk.svg")
+            iicon_type = "icons/drive-harddisk.svg"
+        iicon = QIcon(iicon_type)
         iitem = name
         item = QStandardItem(iicon, iitem)
         item.setData("media", Qt.UserRole+1)
@@ -1034,6 +1039,13 @@ class MainWin(QWidget):
         self.itemSetPos(item)
         # restore the positions
         self.listviewRestore2()
+        # desktop notification
+        if USE_MEDIA and USE_MEDIA_NOTIFICATION == 2:
+            if shutil.which("notify-send"):
+                icon_path = os.path.join(os.getcwd(), iicon_type)
+                # 
+                command = ["notify-send", "-i", icon_path, "-t", "3000", "-u", "normal", iitem, "Inserted"]
+                subprocess.Popen(command)
     
     
     # remove the device from the model and view
@@ -1056,7 +1068,7 @@ class MainWin(QWidget):
                         del self.media_added[mm]
                         # restore the positions
                         self.listviewRestore2()
-                        #
+                        # desktop notification
                         if USE_MEDIA and USE_MEDIA_NOTIFICATION:
                             if shutil.which("notify-send"):
                                 icon_path = os.path.join(os.getcwd(), "icons/drive-harddisk.svg")
@@ -1073,8 +1085,8 @@ class MainWin(QWidget):
                                         item_icon = "icons/drive-harddisk.svg"
                                     icon_path = os.path.join(os.getcwd(), item_icon)
                                 # 
-                                command = ["notify-send", "-i", icon_path, "-t", "3000", "-u", "normal", item_display_name, "Disconnected"]
-                            subprocess.Popen(command)
+                                command = ["notify-send", "-i", icon_path, "-t", "3000", "-u", "normal", item_display_name, "Ejected"]
+                                subprocess.Popen(command)
     
     
     # get the device mount point
