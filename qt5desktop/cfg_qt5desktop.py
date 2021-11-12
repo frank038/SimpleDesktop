@@ -1,13 +1,13 @@
 # the folder to set as desktop in the home directory
 USER_DESKTOP="Desktop"
 # left margin - minimum
-LEFT_M=30
+LEFT_M=20
 # top margin - minimum
-TOP_M=50
+TOP_M=30
 # right margin - minimum
-RIGHT_M=30
+RIGHT_M=10
 # bottom margin - minimum
-BOTTOM_M=100
+BOTTOM_M=0
 # multi items drag picture: 0 use simple icon - 1 enable extended icon
 USE_EXTENDED_DRAG_ICON=1
 # x offset of each icon if USE_EXTENDED_DRAG_ICON is enabled
@@ -21,11 +21,11 @@ USE_THUMB=0
 # use custom icons for folders: 0 no - 1 yes
 USE_FOL_CI=0
 # space between items
-ITEM_SPACE=48
+ITEM_SPACE=10
 # icon cell width - greater than ICON_SIZE
-ITEM_WIDTH=180
-# icon cell height - DO NOT CHANGE
-ITEM_HEIGHT=ITEM_WIDTH
+ITEM_WIDTH=160
+# icon cell height
+ITEM_HEIGHT=160
 # icon size
 ICON_SIZE=120
 # thumb size: greater than ICON_SIZE - same size of ICON_SIZE to disable bigger thumbnailers

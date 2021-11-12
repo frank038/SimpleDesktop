@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.4
+# Version 0.5.5
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -78,10 +78,6 @@ if USE_THUMB == 1:
     except Exception as E:
         USE_THUMB = 0
 
-#
-if ICON_SIZE > ITEM_WIDTH:
-    ITEM_WIDTH = ICON_SIZE
-
 ############
 # the mimeapps.list used by this program
 if USER_MIMEAPPSLIST:
@@ -143,7 +139,6 @@ DDIR = os.path.join(os.path.expanduser("~"), USER_DESKTOP)
 
 TRASH_PATH = os.path.join(os.path.expanduser("~"), ".local/share/Trash/files")
 
-
 stopCD = 0
 
 # desktop size
@@ -152,6 +147,11 @@ WINH = 0
 
 # special entries
 special_entries = ["trash", "media", "desktop"]
+
+
+#
+if ICON_SIZE > ITEM_WIDTH:
+    ITEM_WIDTH = ICON_SIZE
 
 # margins
 LEFT_M = LEFT_M
@@ -166,6 +166,8 @@ num_col = 0
 num_row = 0
 # reserved cells - items cannot be positioned there (type: indexes)
 reserved_cells = []
+# text height
+ST_HEIGHT = 0
 
 
 # get the folder size
@@ -213,7 +215,7 @@ class MyQlist(QListView):
                 filepath = os.path.join(DDIR, index.data(0))
                 #
                 # regular files or folders (not fifo, etc.)
-                if stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode) or stat.S_ISLNK(os.stat(filepath).st_mode):
+                if os.path.islink(filepath) or stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode):
                     item_list.append(QUrl.fromLocalFile(filepath))
                     self.item_idx.append(index)
                 else:
@@ -668,7 +670,7 @@ class itemDelegate(QItemDelegate):
 
     def __init__(self, parent=None):
         super(itemDelegate, self).__init__(parent)
-        self.text_width = ITEM_WIDTH - ITEM_SPACE/2
+        self.text_width = ITEM_WIDTH - ITEM_SPACE
     
     def paint(self, painter, option, index):
         itemx = option.rect.x()
@@ -690,9 +692,10 @@ class itemDelegate(QItemDelegate):
         size_pixmap = pixmap.size()
         pw = size_pixmap.width()
         ph = size_pixmap.height()
+        # 
         xpad = int((ITEM_WIDTH - pw) / 2)
-        ypad = int((ICON_SIZE - ph) / 2)
-        painter.drawPixmap(itemx + xpad, itemy + ypad, -1,-1, pixmap,0,0,-1,-1)
+        ypad = int((ITEM_HEIGHT - ph) / 2)
+        painter.drawPixmap(itemx+xpad, itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4), -1,-1, pixmap,0,0,-1,-1)
         #
         fileInfo = QFileInfo(ppath)
         # skip trashcan and media
@@ -700,15 +703,15 @@ class itemDelegate(QItemDelegate):
             if not os.path.isdir(ppath):
                 if not fileInfo.isReadable() or not fileInfo.isWritable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                    painter.drawPixmap(itemx+int(ITEM_SPACE/4), itemy+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
+                    painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, ppixmap,0,0,-1,-1)
             else:
                 if not fileInfo.isReadable() or not fileInfo.isWritable() or not fileInfo.isExecutable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                    painter.drawPixmap(itemx+int(ITEM_SPACE/4), itemy+ICON_SIZE-ICON_SIZE2,-1,-1, ppixmap,0,0,-1,-1)
+                    painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, ppixmap,0,0,-1,-1)
             #
             if os.path.islink(ppath):
                 lpixmap = QPixmap('icons/emblem-symbolic-link.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2-int(ITEM_SPACE/4), itemy+ICON_SIZE-ICON_SIZE2,-1,-1, lpixmap,0,0,-1,-1)
+                painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2-1-ITEM_SPACE/2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, lpixmap,0,0,-1,-1)
         #
         painter.save()
         # text background colour
@@ -717,21 +720,21 @@ class itemDelegate(QItemDelegate):
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
             painter.setPen(QColor(CIRCLE_COLOR))
-            painter.drawEllipse(QRect(itemx+1+int(ITEM_SPACE/4),itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
+            painter.drawEllipse(QRect(itemx+1+int(ITEM_SPACE/2),itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
             # skip trashcan and media
             if index.data(Qt.UserRole+1) == "file":
                 # tick symbol
                 painter.setPen(QColor(TICK_COLOR))
                 text = '<div style="font-size:{}px">{}</div>'.format(TICK_SIZE, TICK_CHAR)
                 st = QStaticText(text)
-                tx = int(itemx+1+((CIRCLE_SIZE - st.size().width())/2))+int(ITEM_SPACE/4)
+                tx = int(itemx+1+((CIRCLE_SIZE - st.size().width())/2))+int(ITEM_SPACE/2)
                 ty = int(itemy+1+((CIRCLE_SIZE - st.size().height())/2))
                 painter.drawStaticText(tx, ty, st)
             #
             qstring = index.data(0)
             
             st = QStaticText(qstring)
-            st.setTextWidth(self.text_width)
+            st.setTextWidth(self.text_width-4)
             to = QTextOption(Qt.AlignCenter)
             to.setWrapMode(QTextOption.WrapAnywhere)
             st.setTextOption(to)
@@ -740,27 +743,27 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/4,itemy+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/2,itemy+ITEM_HEIGHT-ST_HEIGHT*2-1,ITEM_WIDTH-ITEM_SPACE,st.size().height()), 5.0, 5.0, Qt.AbsoluteSize)
             #
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(itemx+ITEM_SPACE/4, itemy+ICON_SIZE+10, st)
+            painter.drawStaticText(itemx+ITEM_SPACE/2+2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-1, st)
         elif option.state & QStyle.State_MouseOver:
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
             painter.setPen(QColor(CIRCLE_COLOR))
-            painter.drawEllipse(QRect(itemx+1+int(ITEM_SPACE/4),itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
+            painter.drawEllipse(QRect(itemx+1+int(ITEM_SPACE/2),itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
             #
             qstring = index.data(0)
             #
             metrics = QFontMetrics(painter.font())
-            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH)
+            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH-ITEM_SPACE)
             #
             st = QStaticText(qstring)
-            st.setTextWidth(self.text_width)
+            st.setTextWidth(self.text_width-4)
             to = QTextOption(Qt.AlignCenter)
             to.setWrapMode(QTextOption.WrapAnywhere)
             st.setTextOption(to)
@@ -769,21 +772,21 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/4,itemy+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/2,itemy+ITEM_HEIGHT-ST_HEIGHT*2-1,ITEM_WIDTH-ITEM_SPACE,st.size().height()), 5.0, 5.0, Qt.AbsoluteSize)
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(itemx+ITEM_SPACE/4, itemy+ICON_SIZE+10, st)
+            painter.drawStaticText(itemx+ITEM_SPACE/2+2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-1, st)
         else:
             qstring = index.data(0)
             #
             metrics = QFontMetrics(painter.font())
-            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH)
+            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH-ITEM_SPACE)
             #
             st = QStaticText(qstring)
-            st.setTextWidth(self.text_width)
+            st.setTextWidth(self.text_width-4)
             to = QTextOption(Qt.AlignCenter)
             to.setWrapMode(QTextOption.WrapAnywhere)
             st.setTextOption(to)
@@ -792,23 +795,20 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/4,itemy+ICON_SIZE+10,st.size().width(),st.size().height()+2), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/2,itemy+ITEM_HEIGHT-ST_HEIGHT*2-1,ITEM_WIDTH-ITEM_SPACE,st.size().height()), 5.0, 5.0, Qt.AbsoluteSize)
             #
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(itemx+ITEM_SPACE/4, itemy+ICON_SIZE+10, st)
+            painter.drawStaticText(itemx+ITEM_SPACE/2+2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-1, st)
         #
         painter.restore()
         
     
     def sizeHint(self, option, index):
-        qstring = index.data(0)
-        st = QStaticText(qstring)
-        hh = st.size().height()
-        return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
+        return QSize(ITEM_WIDTH, ITEM_HEIGHT)
         
 
 class thumbThread(threading.Thread):
@@ -839,6 +839,31 @@ class MainWin(QWidget):
     media_signal = pyqtSignal(str,str,str,str)
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
+        # 
+        global ITEM_WIDTH
+        global ITEM_HEIGHT
+        global ST_HEIGHT
+        global LEFT_M
+        global TOP_M
+        num_col_rest = int((WINW-LEFT_M-RIGHT_M)%ITEM_WIDTH)
+        num_row_rest = int((WINH-TOP_M-BOTTOM_M)%ITEM_HEIGHT)
+        LEFT_M += int(num_col_rest/2)
+        TOP_M += int(num_row_rest/4)
+        # calculate the height of some text
+        st = QStaticText("A")
+        ST_HEIGHT = st.size().height()
+        # calculate the new cell size
+        ITEM_WIDTH += ITEM_SPACE
+        ITEM_HEIGHT += ST_HEIGHT*2 + ITEM_SPACE
+        #
+        # number of columns and rows
+        global num_col
+        num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH)
+        global num_row
+        num_row = int((WINH-TOP_M-BOTTOM_M)/ITEM_HEIGHT)
+        # reserved cells - items cannot be positioned there (type: indexes)
+        global reserved_cells
+        reserved_cells = [[0, num_row-1]]
         #
         # main box
         self.vbox = QBoxLayout(QBoxLayout.TopToBottom)
@@ -1269,7 +1294,7 @@ class MainWin(QWidget):
         path = os.path.join(DDIR, index.data(0))
         #
         if not os.path.exists(path):
-            MyDialog("Info", "It doesn't exist.", self.window)
+            MyDialog("Info", "It doesn't exist.", self)
             return
         #
         if os.path.isdir(path):
@@ -1622,7 +1647,7 @@ class MainWin(QWidget):
             x, y, item_name_temp = iitem.split("/")
             item_name = item_name_temp.strip("\n")
             # 
-            if os.path.exists(os.path.join(DDIR, item_name)):
+            if os.path.exists(os.path.join(DDIR, item_name)) or os.path.islink(os.path.join(DDIR, item_name)):
                 # fill the model
                 ireal_path = os.path.join(DDIR, item_name)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
@@ -1913,6 +1938,9 @@ class MainWin(QWidget):
                                 return QIcon.fromTheme("folder")
                 else:
                     return QIcon.fromTheme("folder")
+        else:
+            return QIcon.fromTheme("text-plain")
+    
     
     # self.setIcons
     def evaluate_pixbuf(self, ifull_path, imime):
@@ -1964,7 +1992,7 @@ class MainWin(QWidget):
             #
             ipath = os.path.join(DDIR, itemName)
             #
-            if not os.path.exists(ipath):
+            if not os.path.exists(ipath) and not os.path.islink(ipath):
                 MyDialog("Info", "It doesn't exist.", self)
                 return
             #
@@ -4607,16 +4635,6 @@ if __name__ == '__main__':
     WINW = size.width()+2
     # WINH = 800
     WINH = size.height()+2
-    #
-    # number of columns and rows
-    num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH)
-    num_row = int((WINH-TOP_M-BOTTOM_M)/ITEM_HEIGHT)
-    # reserved cells - items cannot be positioned there (type: indexes)
-    reserved_cells = [[0, num_row-1]]
-    num_col_rest = int((WINW-LEFT_M-RIGHT_M)%ITEM_WIDTH)
-    num_row_rest = int((WINH-TOP_M-BOTTOM_M)%ITEM_HEIGHT)
-    LEFT_M += int(num_col_rest/2)
-    TOP_M += int(num_row_rest/4)
     #
     window = MainWin()
     window.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)
