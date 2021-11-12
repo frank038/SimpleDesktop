@@ -30,7 +30,7 @@ ITEM_HEIGHT=160
 ICON_SIZE=120
 # thumb size: greater than ICON_SIZE - same size of ICON_SIZE to disable bigger thumbnailers
 THUMB_SIZE=160
-# item text shrinking - in case the item text take three lines when not selected increase this value
+# item text shrinking - in the case the item text takes three lines when not selected increase this value
 TEXT_SHRINK=0
 # other icons size: link and permissions
 ICON_SIZE2=36
