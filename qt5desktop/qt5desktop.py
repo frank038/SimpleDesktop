@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.5
+# Version 0.5.6
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -148,20 +148,18 @@ WINH = 0
 # special entries
 special_entries = ["trash", "media", "desktop"]
 
-
-#
-if ICON_SIZE > ITEM_WIDTH:
-    ITEM_WIDTH = ICON_SIZE
-
-# margins
+# 
+ICON_SIZE = ICON_SIZE
+THUMB_SIZE = THUMB_SIZE
 LEFT_M = LEFT_M
 TOP_M = TOP_M
 RIGHT_M = RIGHT_M
 BOTTOM_M = BOTTOM_M
-# number of columns and rows
 ITEM_SPACE = int(ITEM_SPACE/2)*2
-ITEM_WIDTH += ITEM_SPACE
-ITEM_HEIGHT += ITEM_SPACE
+ITEM_WIDTH = ITEM_WIDTH
+ITEM_HEIGHT = ITEM_HEIGHT
+
+# amount of columns and rows
 num_col = 0 
 num_row = 0
 # reserved cells - items cannot be positioned there (type: indexes)
@@ -759,13 +757,17 @@ class itemDelegate(QItemDelegate):
             #
             qstring = index.data(0)
             #
+            text2 = " ..."
+            st2 = QStaticText(text2)
+            ST2_WIDTH = st2.size().width() + TEXT_SHRINK
+            #
             metrics = QFontMetrics(painter.font())
-            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH-ITEM_SPACE)
+            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH*2-ITEM_SPACE-ST2_WIDTH)
             #
             st = QStaticText(qstring)
-            st.setTextWidth(self.text_width-4)
+            st.setTextWidth(self.text_width - 4)
             to = QTextOption(Qt.AlignCenter)
-            to.setWrapMode(QTextOption.WrapAnywhere)
+            to.setWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
             st.setTextOption(to)
             # text background
             if TEXT_BACKGROUND:
@@ -782,13 +784,17 @@ class itemDelegate(QItemDelegate):
         else:
             qstring = index.data(0)
             #
+            text2 = " ..."
+            st2 = QStaticText(text2)
+            ST2_WIDTH = st2.size().width() + TEXT_SHRINK
+            #
             metrics = QFontMetrics(painter.font())
-            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH-ITEM_SPACE)
+            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH*2-ITEM_SPACE-ST2_WIDTH)
             #
             st = QStaticText(qstring)
-            st.setTextWidth(self.text_width-4)
+            st.setTextWidth(self.text_width - 4)
             to = QTextOption(Qt.AlignCenter)
-            to.setWrapMode(QTextOption.WrapAnywhere)
+            to.setWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
             st.setTextOption(to)
             # text background
             if TEXT_BACKGROUND:
@@ -809,7 +815,7 @@ class itemDelegate(QItemDelegate):
     
     def sizeHint(self, option, index):
         return QSize(ITEM_WIDTH, ITEM_HEIGHT)
-        
+
 
 class thumbThread(threading.Thread):
     
@@ -840,7 +846,13 @@ class MainWin(QWidget):
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
         # 
+        global ICON_SIZE
+        global THUMB_SIZE
         global ITEM_WIDTH
+        if ICON_SIZE > ITEM_WIDTH:
+            ICON_SIZE = ITEM_WIDTH
+        if THUMB_SIZE > ITEM_WIDTH:
+            THUMB_SIZE = ITEM_WIDTH
         global ITEM_HEIGHT
         global ST_HEIGHT
         global LEFT_M
@@ -4631,9 +4643,7 @@ if __name__ == '__main__':
     #
     screen = app.primaryScreen()
     size = screen.size()
-    # WINW = 1200
     WINW = size.width()+2
-    # WINH = 800
     WINH = size.height()+2
     #
     window = MainWin()
