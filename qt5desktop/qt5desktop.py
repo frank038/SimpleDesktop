@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.7
+# Version 0.5.8
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -662,6 +662,46 @@ class passWord(QDialog):
         except:
             self.label.setText("Wrong Password:")
             self.le1.setText("")
+
+
+class classItemComment(QDialog):
+    def __init__(self, oldComment, parent=None):
+        super(classItemComment, self).__init__(parent)
+        self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
+        self.oldComment = oldComment
+        if self.oldComment:
+            self.setWindowTitle("Modify the comment")
+        else:
+            self.setWindowTitle("Add a new comment")
+        self.setWindowModality(Qt.ApplicationModal)
+        self.resize(DIALOGWIDTH,250)
+        #
+        grid = QGridLayout()
+        grid.setContentsMargins(5,5,5,5)
+        #
+        self.le1 = QLineEdit()
+        if self.oldComment:
+            self.le1.setText(self.oldComment)
+            button1 = QPushButton("Modify")
+        else:
+            button1 = QPushButton("  Add  ")
+        button1.clicked.connect(self.getComment)
+        #
+        button_ok = QPushButton("   Cancel   ")
+        # 
+        grid.addWidget(self.le1, 0, 0, 1, 3)
+        grid.addWidget(button1, 1, 0, 1, 3)
+        grid.addWidget(button_ok, 2, 0, 1, 3)
+        self.setLayout(grid)
+        button_ok.clicked.connect(self.close)
+        #
+        self.newComment = ""
+        #
+        self.exec_()
+    
+    def getComment(self):
+        self.newComment = self.le1.text()
+        self.close()
 
 
 class itemDelegate(QItemDelegate):
@@ -2058,6 +2098,11 @@ class MainWin(QWidget):
                 pasteNmergeAction = QAction("Paste", self)
                 pasteNmergeAction.triggered.connect(lambda d:PastenMerge(ipath, -3, "", self))
                 menu.addAction(pasteNmergeAction)
+                # check the clipboard for data
+                clipboard = QApplication.clipboard()
+                mimeData = clipboard.mimeData(QClipboard.Clipboard)
+                if "x-special/gnome-copied-files" not in mimeData.formats():
+                    pasteNmergeAction.setEnabled(False)
             #
             if USE_TRASH:
                 # only items in the desktop
@@ -2168,6 +2213,11 @@ class MainWin(QWidget):
             pasteNmergeAction = QAction("Paste", self)
             pasteNmergeAction.triggered.connect(lambda d:self.validatePastenMerge(DDIR, -3))
             menu.addAction(pasteNmergeAction)
+            # check the clipboard for data
+            clipboard = QApplication.clipboard()
+            mimeData = clipboard.mimeData(QClipboard.Clipboard)
+            if "x-special/gnome-copied-files" not in mimeData.formats():
+                pasteNmergeAction.setEnabled(False)
             #
             menu.addSeparator()
             subm_customAction = menu.addMenu("Actions")
@@ -2312,9 +2362,16 @@ class MainWin(QWidget):
         menu.addAction(deleteAction)
         if ddata[3] in ["Directory", "Link"]:
             menu.addSeparator()
-            pathAction = QAction("Path", self)
-            pathAction.triggered.connect(lambda:MyDialog("Info", ddata[2][7:] , self))
+            pathAction = QAction("Info", self)
+            current_dir = os.path.join(os.path.expanduser("~"), "Desktop")
+            itemPath = os.path.join(current_dir, ddata[0])
+            itemComment = self.fGetItemComment(itemPath)
+            pathAction.triggered.connect(lambda:MyDialog("Info", "<i>Path</i> {}<br><i>Comment</i> {}".format(ddata[2][7:], itemComment), self))
             menu.addAction(pathAction)
+            # comment
+            pathComment = QAction("Add comment", self)
+            pathComment.triggered.connect(lambda:self.fItemComment(itemPath))
+            menu.addAction(pathComment)
         #
         menu.exec_(self.listview.mapToGlobal(position))
     
@@ -2407,6 +2464,40 @@ class MainWin(QWidget):
             else:
                 MyDialog("Info", "The program\n"+ret+"\ncannot be found", self)
     
+    
+    # add or modify the comment
+    def fItemComment(self, itemPath):
+        if not os.access(itemPath, os.W_OK):
+            MyDialog("Info", "The comment cannot be modified.\nWrong file permissions.", self)
+            return
+        oldComment = self.fGetItemComment(itemPath)
+        newComment = classItemComment(oldComment).newComment
+        if newComment:
+            entry = DesktopEntry(itemPath)
+            dname = entry.getName()
+            dicon = entry.getIcon()
+            dtype = entry.getType()
+            durl = entry.getURL()
+            dcomment = newComment
+            # write the desktop file
+            try:
+                with open(itemPath, "w") as ff:
+                    ff.write("[Desktop Entry]\n")
+                    ff.write("Name={}\n".format(dname))
+                    ff.write("Icon={}\n".format(dicon))
+                    ff.write("Type={}\n".format(dtype))
+                    ff.write("URL={}\n".format(durl))
+                    ff.write("Comment={}\n".format(newComment))
+            except Exception as E:
+                MyDialog("Error", str(E), self)
+        
+    # self.fItemComment
+    def fGetItemComment(self, itemPath):
+        oldComment = ""
+        if os.access(itemPath, os.R_OK):
+            entry = DesktopEntry(itemPath)
+            oldComment = entry.getComment()
+        return oldComment
     
     #
     def fcopycutAction(self, action):
