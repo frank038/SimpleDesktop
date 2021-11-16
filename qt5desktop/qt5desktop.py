@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.8
+# Version 0.5.9
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -885,6 +885,7 @@ class MainWin(QWidget):
     media_signal = pyqtSignal(str,str,str,str)
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
+        self.setContentsMargins(0,0,0,0)
         # 
         global ICON_SIZE
         global THUMB_SIZE
@@ -929,6 +930,7 @@ class MainWin(QWidget):
                 self.desktop_items.remove(iitem)
         ##################
         self.listview = MyQlist()
+        self.listview.setContentsMargins(0,0,0,0)
         # disable the double clicking renaming
         self.listview.setEditTriggers(QAbstractItemView.NoEditTriggers)
         #
@@ -966,9 +968,9 @@ class MainWin(QWidget):
         #
         # the background color or the wallpaper
         if USE_BACKGROUND_COLOUR == 1 or not os.path.exists("wallpaper.jpg"):
-            self.listview.setStyleSheet("background-color: {};".format(BACKGROUND_COLOR))
+            self.listview.setStyleSheet("border: 0px; background-color: {};".format(BACKGROUND_COLOR))
         else:
-            self.listview.setStyleSheet("background-image: url(wallpaper.jpg) 0 0 0 0 stretch stretch;") # max-width:{0}px;min-width:{0}px; max-height:{1}px; min-height:{1}px;".format(WINW, WINH))
+            self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper.jpg) 0 0 0 0 stretch stretch;") # max-width:{0}px;min-width:{0}px; max-height:{1}px; min-height:{1}px;".format(WINW, WINH))
         #
         if USE_THUMB == 1:
             thread = thumbThread(DDIR, self.listview)
@@ -4734,13 +4736,13 @@ if __name__ == '__main__':
     #
     screen = app.primaryScreen()
     size = screen.size()
-    WINW = size.width()+2
-    WINH = size.height()+2
+    WINW = size.width()
+    WINH = size.height()
     #
     window = MainWin()
     window.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)
     window.setWindowFlags(window.windowFlags() | Qt.FramelessWindowHint)
-    window.setGeometry(-1, -1, WINW, WINH)
+    window.setGeometry(0, 0, WINW, WINH)
     window.show()
     #########
     # from Xlib.display import Display
