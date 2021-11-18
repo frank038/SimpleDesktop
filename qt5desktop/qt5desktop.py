@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.9
+# Version 0.5.10
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -725,6 +725,8 @@ class itemDelegate(QItemDelegate):
         #
         if not index.data(1).name() and index.data(Qt.UserRole+1) == "file":
             pixmap = item_icon.pixmap(QSize(THUMB_SIZE, THUMB_SIZE))
+            if pixmap.size().height() > int(ITEM_HEIGHT - ST_HEIGHT*2 - ITEM_SPACE):
+                pixmap = pixmap.scaledToHeight(int(ITEM_HEIGHT - ST_HEIGHT*2 - ITEM_SPACE))
         else:
             pixmap = item_icon.pixmap(QSize(ICON_SIZE, ICON_SIZE))
         size_pixmap = pixmap.size()
@@ -733,23 +735,27 @@ class itemDelegate(QItemDelegate):
         # 
         xpad = int((ITEM_WIDTH - pw) / 2)
         ypad = int((ITEM_HEIGHT - ph) / 2)
-        painter.drawPixmap(itemx+xpad, itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4), -1,-1, pixmap,0,0,-1,-1)
-        #
+        # painter.drawPixmap(itemx+xpad, itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4), -1,-1, pixmap,0,0,-1,-1)
+        painter.drawPixmap(itemx+xpad, itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4), pixmap)
+        # 
         fileInfo = QFileInfo(ppath)
         # skip trashcan and media
         if index.data(Qt.UserRole+1) == "file":
             if not os.path.isdir(ppath):
                 if not fileInfo.isReadable() or not fileInfo.isWritable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                    painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, ppixmap,0,0,-1,-1)
+                    # painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, ppixmap,0,0,-1,-1)
+                    painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2), ppixmap)
             else:
                 if not fileInfo.isReadable() or not fileInfo.isWritable() or not fileInfo.isExecutable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                    painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, ppixmap,0,0,-1,-1)
+                    # painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, ppixmap,0,0,-1,-1)
+                    painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2), ppixmap)
             #
             if os.path.islink(ppath):
                 lpixmap = QPixmap('icons/emblem-symbolic-link.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
-                painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2-1-ITEM_SPACE/2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, lpixmap,0,0,-1,-1)
+                # painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2-1-ITEM_SPACE/2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, lpixmap,0,0,-1,-1)
+                painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2-1-ITEM_SPACE/2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2), lpixmap)
         #
         painter.save()
         # text background colour
