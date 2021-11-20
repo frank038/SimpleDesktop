@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.5.11
+# Version 0.6.0
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -334,6 +334,7 @@ class MyQlist(QListView):
             else:
                 return 1
     
+    # 
     def dropEvent(self, event):
         # qt5simplearchiver
         if event.mimeData().hasFormat(self.customMimeType):
@@ -353,6 +354,8 @@ class MyQlist(QListView):
                         dest_path = dest_dir
                     else:
                         MyDialog("Info", "Not writable:\n{}".format(os.path.basename(ifp)), None)
+                        event.ignore()
+                        return
             #
             if shutil.which(COMMAND_EXTRACTOR):
                 try:
@@ -363,6 +366,7 @@ class MyQlist(QListView):
                             ARCHIVE_PASSWORD = passWord(archive_name, None).arpass
                             if not ARCHIVE_PASSWORD:
                                 MyDialog("Info", "Cancelled.", None)
+                                event.ignore()
                                 return
                     # 
                     for i in range(0, len(items), 3):
@@ -393,12 +397,13 @@ class MyQlist(QListView):
                 except Exception as E:
                     MyDialog("Error", str(E), None)
             return
-        #
+        ################# 
         dest_path = DDIR
         curr_dir = QFileInfo(dest_path)
         if not curr_dir.isWritable():
             MyDialog("Info", "The current folder is not writable: "+DDIR, None)
             event.ignore()
+            return
         #
         if event.mimeData().hasUrls:
             if isinstance(event.source(), MyQlist):
@@ -434,6 +439,7 @@ class MyQlist(QListView):
                     # one item only
                     if len(self.item_idx) == 1:
                         self.dropEvent3(event)
+            # drop from another application
             else:
                 event.accept()
                 filePathsTemp = []
@@ -550,7 +556,7 @@ class MyQlist(QListView):
         self.item_idx = []
         
         
-    # dropEvent
+    # dropEvent of folder
     def dropEvent2(self, event):
         dest_path = DDIR
         curr_dir = QFileInfo(dest_path)
@@ -860,7 +866,31 @@ class itemDelegate(QItemDelegate):
         
     
     def sizeHint(self, option, index):
+        # qstring = index.data(0)
+        # st = QStaticText(qstring)
+        # hh = st.size().height()
+        # return QSize(ITEM_WIDTH-ITEM_SPACE/2, ITEM_WIDTH-ITEM_SPACE/2+int(hh))
         return QSize(ITEM_WIDTH, ITEM_HEIGHT)
+        
+        # # # index:: <PyQt5.QtCore.QModelIndex object at 0xb21e2e70>
+        # # print("index::", index)
+        # # return QSize(ITEM_WIDTH, ICON_SIZE)
+        # # # return QSize(ITEM_WIDTH+50, ICON_SIZE+50)
+        # # qstring = index.data(QFileSystemModel.FileNameRole)
+        # qstring = index.data(0)
+        # # print("TT", option.text, option.decorationSize, option.decorationPosition)
+        # #qstring = "a"
+        # st = QStaticText(qstring)
+        # # st.setTextWidth(self.text_width)
+        # # to = QTextOption(Qt.AlignCenter)
+        # # to.setWrapMode(QTextOption.WrapAnywhere)
+        # # st.setTextOption(to)
+        # # ww = st.size().width()
+        # hh = st.size().height()
+        # # return QSize(int(ww), int(hh)+ITEM_HEIGHT-ITEM_SPACE)
+        # return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
+        # # print("ggg", ITEM_WIDTH,ITEM_HEIGHT)
+        # # return QSize(ITEM_WIDTH, ITEM_HEIGHT)
 
 
 class thumbThread(threading.Thread):
@@ -889,6 +919,7 @@ class thumbThread(threading.Thread):
 # 1
 class MainWin(QWidget):
     media_signal = pyqtSignal(str,str,str,str)
+    # trash_desktop_signal = pyqtSignal(str)
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
         self.setContentsMargins(0,0,0,0)
@@ -993,6 +1024,8 @@ class MainWin(QWidget):
             self.csa = csaa+csab+csac+csad+csae+csaf+csag
         # item are added in the selected item list if clicked at its top-left position
         self.static_items = False
+        # desktop coordinates when right click - empty space
+        self.background_coords = None
         # [[QPos], device]
         self.media_added = []
         # restore the item position from items_position file
@@ -1012,6 +1045,7 @@ class MainWin(QWidget):
         fPath = [DDIR]
         if USE_TRASH:
             fPath.append(TRASH_PATH)
+            # self.trash_desktop_signal.connect(self.signal_trash_desktop)
         fileSystemWatcher = QFileSystemWatcher(fPath, self)
         fileSystemWatcher.directoryChanged.connect(self.directory_changed)
         #
@@ -1398,11 +1432,48 @@ class MainWin(QWidget):
             else:
                 MyDialog("Info", "No programs found.", self)
         
+    # # some items have been added or removed on the desktop, or in the trash can
+    # def signal_trash_desktop(self, ttype):
+        # if ttype == "trash":
+            # for row in range(self.model.rowCount()):
+                # item_model = self.model.item(row)
+                # if item_model.data(Qt.UserRole+1) == "trash":
+                    # tmp = os.listdir(TRASH_PATH)
+                    # if tmp:
+                        # iicon = QIcon.fromTheme("user-trash-full")
+                        # item_model.setData(iicon, 1)
+                    # else:
+                        # iicon = QIcon.fromTheme("user-trash")
+                        # item_model.setData(iicon, 1)
+                    # return
+        # elif ttype == "desktop":
+            # new_desktop_list = self.desktopItems()
+            # # items added
+            # if len(new_desktop_list) > len(self.desktop_items):
+                # self.addItem(new_desktop_list)
+            # # items removed
+            # elif len(new_desktop_list) < len(self.desktop_items):
+                # self.removeItem(new_desktop_list)
+            # # all the other cases supported: renaming, properties, ecc.
+            # else:
+                # self.changedItem(new_desktop_list)
+            # # update the list
+            # self.desktop_items = new_desktop_list
+            # #
+            # self.listview.viewport().update()
     
-    # some applications have been added or removed
+    
+    # # something changed in the desktop, or in the trash can
+    # def directory_changed(self, edir):
+        # if edir == TRASH_PATH:
+            # self.trash_desktop_signal.emit("trash")
+        # else:
+            # self.trash_desktop_signal.emit("desktop")
+    
+    
+    # some items have been added or removed, or the trash can changed
     def directory_changed(self, edir):
         if edir == TRASH_PATH:
-            tmp = os.listdir(TRASH_PATH)
             for row in range(self.model.rowCount()):
                 item_model = self.model.item(row)
                 if item_model.data(Qt.UserRole+1) == "trash":
@@ -1624,6 +1695,12 @@ class MainWin(QWidget):
     
     # itemSetPos - return the first empty cell in the listview
     def itemSetPos2(self):
+        # QPoint
+        if self.background_coords:
+            cc = (self.background_coords.x() - LEFT_M) / ITEM_WIDTH
+            rr = (self.background_coords.y() - TOP_M) / ITEM_HEIGHT
+            return [int(cc), int(rr)]
+        #
         items_position = []
         with open("items_position", "r") as ff:
             items_position = ff.readlines()
@@ -1773,16 +1850,17 @@ class MainWin(QWidget):
                 file_is_changed = 1
                 items_position.remove(iitem)
         ### add the trashcan
-        tmp = os.listdir(TRASH_PATH)
-        if tmp:
-            iicon = QIcon.fromTheme("user-trash-full")
-        else:
-            iicon = QIcon.fromTheme("user-trash")
-        iitem = TRASH_NAME
-        item = QStandardItem(iicon, iitem)
-        item.setData("trash", Qt.UserRole + 1)
-        self.model.appendRow(item)
-        self.trash_standartItem = item
+        if USE_TRASH:
+            tmp = os.listdir(TRASH_PATH)
+            if tmp:
+                iicon = QIcon.fromTheme("user-trash-full")
+            else:
+                iicon = QIcon.fromTheme("user-trash")
+            iitem = TRASH_NAME
+            item = QStandardItem(iicon, iitem)
+            item.setData("trash", Qt.UserRole + 1)
+            self.model.appendRow(item)
+            self.trash_standartItem = item
         ### add new items
         if not items_skipped:
             for item_name in self.desktop_items:
@@ -1940,6 +2018,12 @@ class MainWin(QWidget):
                     if self.static_items == True:
                         self.static_items = False
                         self.listview.setSelectionMode(QAbstractItemView.ExtendedSelection)
+            elif event.button() == Qt.RightButton:
+                # pointed at a valid empty desktop cell
+                self.background_coords = None
+                if event.pos().x() > LEFT_M and event.pos().y() > TOP_M and event.pos().x() < (LEFT_M + self.num_col * ITEM_WIDTH) and event.pos().y() < (TOP_M + self.num_row*ITEM_HEIGHT):
+                    if not self.listview.indexAt(event.pos()).isValid():
+                        self.background_coords = event.pos()
         #
         return QObject.event(obj, event)
     
@@ -2176,7 +2260,6 @@ class MainWin(QWidget):
             menu.exec_(self.listview.mapToGlobal(position))
         ## background
         else:
-            #
             if not os.path.exists(DDIR):
                 MyDialog("Info", "It doesn't exist.", self)
                 return
