@@ -866,31 +866,7 @@ class itemDelegate(QItemDelegate):
         
     
     def sizeHint(self, option, index):
-        # qstring = index.data(0)
-        # st = QStaticText(qstring)
-        # hh = st.size().height()
-        # return QSize(ITEM_WIDTH-ITEM_SPACE/2, ITEM_WIDTH-ITEM_SPACE/2+int(hh))
         return QSize(ITEM_WIDTH, ITEM_HEIGHT)
-        
-        # # # index:: <PyQt5.QtCore.QModelIndex object at 0xb21e2e70>
-        # # print("index::", index)
-        # # return QSize(ITEM_WIDTH, ICON_SIZE)
-        # # # return QSize(ITEM_WIDTH+50, ICON_SIZE+50)
-        # # qstring = index.data(QFileSystemModel.FileNameRole)
-        # qstring = index.data(0)
-        # # print("TT", option.text, option.decorationSize, option.decorationPosition)
-        # #qstring = "a"
-        # st = QStaticText(qstring)
-        # # st.setTextWidth(self.text_width)
-        # # to = QTextOption(Qt.AlignCenter)
-        # # to.setWrapMode(QTextOption.WrapAnywhere)
-        # # st.setTextOption(to)
-        # # ww = st.size().width()
-        # hh = st.size().height()
-        # # return QSize(int(ww), int(hh)+ITEM_HEIGHT-ITEM_SPACE)
-        # return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
-        # # print("ggg", ITEM_WIDTH,ITEM_HEIGHT)
-        # # return QSize(ITEM_WIDTH, ITEM_HEIGHT)
 
 
 class thumbThread(threading.Thread):
