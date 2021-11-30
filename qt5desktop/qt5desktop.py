@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.0
+# Version 0.6.1
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -895,7 +895,6 @@ class thumbThread(threading.Thread):
 # 1
 class MainWin(QWidget):
     media_signal = pyqtSignal(str,str,str,str)
-    # trash_desktop_signal = pyqtSignal(str)
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
         self.setContentsMargins(0,0,0,0)
@@ -1021,7 +1020,6 @@ class MainWin(QWidget):
         fPath = [DDIR]
         if USE_TRASH:
             fPath.append(TRASH_PATH)
-            # self.trash_desktop_signal.connect(self.signal_trash_desktop)
         fileSystemWatcher = QFileSystemWatcher(fPath, self)
         fileSystemWatcher.directoryChanged.connect(self.directory_changed)
         #
@@ -1408,44 +1406,6 @@ class MainWin(QWidget):
             else:
                 MyDialog("Info", "No programs found.", self)
         
-    # # some items have been added or removed on the desktop, or in the trash can
-    # def signal_trash_desktop(self, ttype):
-        # if ttype == "trash":
-            # for row in range(self.model.rowCount()):
-                # item_model = self.model.item(row)
-                # if item_model.data(Qt.UserRole+1) == "trash":
-                    # tmp = os.listdir(TRASH_PATH)
-                    # if tmp:
-                        # iicon = QIcon.fromTheme("user-trash-full")
-                        # item_model.setData(iicon, 1)
-                    # else:
-                        # iicon = QIcon.fromTheme("user-trash")
-                        # item_model.setData(iicon, 1)
-                    # return
-        # elif ttype == "desktop":
-            # new_desktop_list = self.desktopItems()
-            # # items added
-            # if len(new_desktop_list) > len(self.desktop_items):
-                # self.addItem(new_desktop_list)
-            # # items removed
-            # elif len(new_desktop_list) < len(self.desktop_items):
-                # self.removeItem(new_desktop_list)
-            # # all the other cases supported: renaming, properties, ecc.
-            # else:
-                # self.changedItem(new_desktop_list)
-            # # update the list
-            # self.desktop_items = new_desktop_list
-            # #
-            # self.listview.viewport().update()
-    
-    
-    # # something changed in the desktop, or in the trash can
-    # def directory_changed(self, edir):
-        # if edir == TRASH_PATH:
-            # self.trash_desktop_signal.emit("trash")
-        # else:
-            # self.trash_desktop_signal.emit("desktop")
-    
     
     # some items have been added or removed, or the trash can changed
     def directory_changed(self, edir):
@@ -1675,6 +1635,7 @@ class MainWin(QWidget):
         if self.background_coords:
             cc = (self.background_coords.x() - LEFT_M) / ITEM_WIDTH
             rr = (self.background_coords.y() - TOP_M) / ITEM_HEIGHT
+            self.background_coords = None
             return [int(cc), int(rr)]
         #
         items_position = []
@@ -2094,7 +2055,7 @@ class MainWin(QWidget):
         if self.static_items == True:
             self.static_items = False
             self.listview.setSelectionMode(QAbstractItemView.ExtendedSelection)
-            if not pointedItem2 in self.selection:
+            if pointedItem2 and not pointedItem2 in self.selection:
                 # deselect all
                 self.listview.clearSelection()
                 self.selection = [pointedItem2]
@@ -2789,8 +2750,6 @@ class MainWin(QWidget):
         status = QProcess.startDetached(sys.executable, sys.argv)
 
 ################
-
-    
 
 # dialog - for file with the execution bit
 class execfileDialog(QDialog):
