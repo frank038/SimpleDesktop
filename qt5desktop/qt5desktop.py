@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.1
+# Version 0.6.5
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -895,9 +895,9 @@ class thumbThread(threading.Thread):
 # 1
 class MainWin(QWidget):
     media_signal = pyqtSignal(str,str,str,str)
+    # trash_desktop_signal = pyqtSignal(str)
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
-        self.setContentsMargins(0,0,0,0)
         # 
         global ICON_SIZE
         global THUMB_SIZE
@@ -910,23 +910,24 @@ class MainWin(QWidget):
         global ST_HEIGHT
         global LEFT_M
         global TOP_M
-        num_col_rest = int((WINW-LEFT_M-RIGHT_M)%ITEM_WIDTH)
-        num_row_rest = int((WINH-TOP_M-BOTTOM_M)%ITEM_HEIGHT)
-        LEFT_M += int(num_col_rest/2)
-        TOP_M += int(num_row_rest/4)
-        # calculate the height of some text
+        ## calculate the height of some text
         st = QStaticText("A")
         ST_HEIGHT = st.size().height()
-        # calculate the new cell size
+        ## calculate the new cell size
         ITEM_WIDTH += ITEM_SPACE
         ITEM_HEIGHT += ST_HEIGHT*2 + ITEM_SPACE
-        #
         # number of columns and rows
         global num_col
-        num_col = int((WINW-LEFT_M-RIGHT_M)/ITEM_WIDTH)
+        num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
         global num_row
-        num_row = int((WINH-TOP_M-BOTTOM_M)/ITEM_HEIGHT)
-        # reserved cells - items cannot be positioned there (type: indexes)
+        num_row = int((WINH-M_TOP-M_BOTTOM - BOTTOM_M)/ITEM_HEIGHT)
+        #
+        num_col_rest = int((WINW - M_LEFT - M_RIGHT - (num_col * ITEM_WIDTH))/(num_col))
+        # num_row_rest = int((WINH - M_TOP - M_BOTTOM - num_row * ITEM_HEIGHT)/num_row)
+        num_row_rest = 0
+        ITEM_WIDTH += num_col_rest
+        ITEM_HEIGHT += num_row_rest
+        ## reserved cells - items cannot be positioned there (type: indexes)
         global reserved_cells
         reserved_cells = [[0, num_row-1]]
         #
@@ -951,6 +952,9 @@ class MainWin(QWidget):
         self.listview.hide()
         self.listview.setViewMode(QListView.IconMode)
         self.listview.setFlow(QListView.TopToBottom)
+        #
+        self.listview.setUniformItemSizes(True)
+        self.listview.setViewportMargins(M_LEFT, M_TOP, M_RIGHT, M_BOTTOM)
         #
         self.listview.clicked.connect(self.singleClick)
         self.listview.doubleClicked.connect(self.doubleClick)
@@ -982,7 +986,8 @@ class MainWin(QWidget):
         if USE_BACKGROUND_COLOUR == 1 or not os.path.exists("wallpaper.jpg"):
             self.listview.setStyleSheet("border: 0px; background-color: {};".format(BACKGROUND_COLOR))
         else:
-            self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper.jpg) 0 0 0 0 stretch stretch;") # max-width:{0}px;min-width:{0}px; max-height:{1}px; min-height:{1}px;".format(WINW, WINH))
+            # self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper.jpg) 0 0 0 0 stretch stretch;") # max-width:{0}px;min-width:{0}px; max-height:{1}px; min-height:{1}px;".format(WINW, WINH))
+            self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper.jpg); background-attachment: fixed;")
         #
         if USE_THUMB == 1:
             thread = thumbThread(DDIR, self.listview)
@@ -1020,6 +1025,7 @@ class MainWin(QWidget):
         fPath = [DDIR]
         if USE_TRASH:
             fPath.append(TRASH_PATH)
+            # self.trash_desktop_signal.connect(self.signal_trash_desktop)
         fileSystemWatcher = QFileSystemWatcher(fPath, self)
         fileSystemWatcher.directoryChanged.connect(self.directory_changed)
         #
@@ -1405,7 +1411,7 @@ class MainWin(QWidget):
                     MyDialog("Error", str(E), self)
             else:
                 MyDialog("Info", "No programs found.", self)
-        
+    
     
     # some items have been added or removed, or the trash can changed
     def directory_changed(self, edir):
@@ -2750,6 +2756,8 @@ class MainWin(QWidget):
         status = QProcess.startDetached(sys.executable, sys.argv)
 
 ################
+
+    
 
 # dialog - for file with the execution bit
 class execfileDialog(QDialog):

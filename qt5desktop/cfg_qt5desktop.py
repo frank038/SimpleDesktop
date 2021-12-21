@@ -1,13 +1,24 @@
 # the folder to set as desktop in the home directory
 USER_DESKTOP="Desktop"
-# left margin - minimum
-LEFT_M=20
-# top margin - minimum
-TOP_M=30
-# right margin - minimum
-RIGHT_M=10
-# bottom margin - minimum
+## viewport margins
+# left margin
+M_LEFT=0
+# top margin
+M_TOP=0
+# right margin
+M_RIGHT=0
+# bottom margin
+M_BOTTOM=0
+## other kind of margins
+# item left margin - normally not to be used
+LEFT_M=0
+# item top margin - normally not to be used
+TOP_M=0
+# item right margin - normally not to be used
+RIGHT_M=0
+# item bottom margin - to use to reduce the number of rows from bottom
 BOTTOM_M=0
+##
 # multi items drag picture: 0 use simple icon - 1 enable extended icon
 USE_EXTENDED_DRAG_ICON=1
 # x offset of each icon if USE_EXTENDED_DRAG_ICON is enabled
