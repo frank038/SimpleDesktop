@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.5.1
+# Version 0.6.6
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -1412,6 +1412,44 @@ class MainWin(QWidget):
                     MyDialog("Error", str(E), self)
             else:
                 MyDialog("Info", "No programs found.", self)
+        
+    # # some items have been added or removed on the desktop, or in the trash can
+    # def signal_trash_desktop(self, ttype):
+        # if ttype == "trash":
+            # for row in range(self.model.rowCount()):
+                # item_model = self.model.item(row)
+                # if item_model.data(Qt.UserRole+1) == "trash":
+                    # tmp = os.listdir(TRASH_PATH)
+                    # if tmp:
+                        # iicon = QIcon.fromTheme("user-trash-full")
+                        # item_model.setData(iicon, 1)
+                    # else:
+                        # iicon = QIcon.fromTheme("user-trash")
+                        # item_model.setData(iicon, 1)
+                    # return
+        # elif ttype == "desktop":
+            # new_desktop_list = self.desktopItems()
+            # # items added
+            # if len(new_desktop_list) > len(self.desktop_items):
+                # self.addItem(new_desktop_list)
+            # # items removed
+            # elif len(new_desktop_list) < len(self.desktop_items):
+                # self.removeItem(new_desktop_list)
+            # # all the other cases supported: renaming, properties, ecc.
+            # else:
+                # self.changedItem(new_desktop_list)
+            # # update the list
+            # self.desktop_items = new_desktop_list
+            # #
+            # self.listview.viewport().update()
+    
+    
+    # # something changed in the desktop, or in the trash can
+    # def directory_changed(self, edir):
+        # if edir == TRASH_PATH:
+            # self.trash_desktop_signal.emit("trash")
+        # else:
+            # self.trash_desktop_signal.emit("desktop")
     
     
     # some items have been added or removed, or the trash can changed
@@ -2389,8 +2427,12 @@ class MainWin(QWidget):
             openAction = QAction("Launch", self)
         elif ddata[3] in ["Directory", "Link"]:
             openAction = QAction("Open", self)
+            gotoAction = QAction("Go to the folder", self)
         openAction.triggered.connect(lambda:self.flaunchDesktop(pointedItem))
         menu.addAction(openAction)
+        if ddata[3] in ["Directory", "Link"]:
+            gotoAction.triggered.connect(lambda:self.fgotoFolder(pointedItem))
+            menu.addAction(gotoAction)
         menu.addSeparator()
         deleteAction = QAction("Delete", self)
         deleteAction.triggered.connect(lambda:self.fdeleteDesktopAction(pointedItem))
@@ -2414,10 +2456,13 @@ class MainWin(QWidget):
     def fdeleteDesktopAction(self, pointedItem):
         dname = pointedItem.data(Qt.UserRole+2)[0]
         dpath = os.path.join(DDIR, dname)
-        try:
-            os.remove(dpath)
-        except Exception as E:
-            MyDialog("Error", str(E), self)
+        ret = retDialogBox("Question", "Do you really want to delete this item?", "", dpath, self)
+        #
+        if ret.getValue():
+            try:
+                os.remove(dpath)
+            except Exception as E:
+                MyDialog("Error", str(E), self)
     
     
     # launch a program from its desktop file
@@ -2446,6 +2491,24 @@ class MainWin(QWidget):
                     MyDialog("Info", "No programs found.", self)
             except Exception as E:
                 MyDialog("Error", str(E), self)
+    
+    
+    # open the container folder
+    def fgotoFolder(self, index):
+        # name - icon - exec - type
+        ddata = index.data(Qt.UserRole+2)
+        try:
+            dirpath = os.path.dirname(unquote(ddata[2])[7:])
+            if not os.path.exists(dirpath):
+                MyDialog("Info", "The folder {} cannot be found.".format(os.path.basename(dirpath)), self)
+                return
+            defApp = getDefaultApp(dirpath, self).defaultApplication()
+            if defApp != "None":
+                subprocess.Popen([defApp, dirpath])
+            else:
+                MyDialog("Info", "No programs found.", self)
+        except Exception as E:
+            MyDialog("Error", str(E), self)
     
     # 
     def ficustomAction(self, el, menuType):
