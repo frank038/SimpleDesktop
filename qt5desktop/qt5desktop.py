@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.6
+# Version 0.6.7
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -866,7 +866,31 @@ class itemDelegate(QItemDelegate):
         
     
     def sizeHint(self, option, index):
+        # qstring = index.data(0)
+        # st = QStaticText(qstring)
+        # hh = st.size().height()
+        # return QSize(ITEM_WIDTH-ITEM_SPACE/2, ITEM_WIDTH-ITEM_SPACE/2+int(hh))
         return QSize(ITEM_WIDTH, ITEM_HEIGHT)
+        
+        # # # index:: <PyQt5.QtCore.QModelIndex object at 0xb21e2e70>
+        # # print("index::", index)
+        # # return QSize(ITEM_WIDTH, ICON_SIZE)
+        # # # return QSize(ITEM_WIDTH+50, ICON_SIZE+50)
+        # # qstring = index.data(QFileSystemModel.FileNameRole)
+        # qstring = index.data(0)
+        # # print("TT", option.text, option.decorationSize, option.decorationPosition)
+        # #qstring = "a"
+        # st = QStaticText(qstring)
+        # # st.setTextWidth(self.text_width)
+        # # to = QTextOption(Qt.AlignCenter)
+        # # to.setWrapMode(QTextOption.WrapAnywhere)
+        # # st.setTextOption(to)
+        # # ww = st.size().width()
+        # hh = st.size().height()
+        # # return QSize(int(ww), int(hh)+ITEM_HEIGHT-ITEM_SPACE)
+        # return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
+        # # print("ggg", ITEM_WIDTH,ITEM_HEIGHT)
+        # # return QSize(ITEM_WIDTH, ITEM_HEIGHT)
 
 
 class thumbThread(threading.Thread):
@@ -1504,19 +1528,19 @@ class MainWin(QWidget):
                         if ddata[1]:
                             if ddata[3] == "Application":
                                 iicon = QIcon.fromTheme(ddata[1])
-                                if iicon.isNull():
+                                if iicon.isNull() or iicon.name() == "":
                                     iicon = QIcon(ddata[1])
-                                    if iicon.isNull():
+                                    if iicon.isNull() or iicon.name() == "":
                                         iicon = QIcon("icons/unknown.svg")
                             elif ddata[3] == "Directory":
                                 iicon = QIcon.fromTheme(ddata[1])
-                                if iicon.isNull():
+                                if iicon.isNull() or iicon.name() == "":
                                     iicon = QIcon(ddata[1])
-                                    if iicon.isNull():
+                                    if iicon.isNull() or iicon.name() == "":
                                         iicon = QIcon("icons/unknown.svg")
                             elif ddata[3] == "Link":
                                 iicon = QIcon(ddata[1])
-                                if iicon.isNull():
+                                if iicon.isNull() or iicon.name() == "":
                                     iicon = QIcon("icons/unknown.svg")
                         else:
                             if ddata[3] == "Link":
@@ -2471,9 +2495,11 @@ class MainWin(QWidget):
         ddata = index.data(Qt.UserRole+2)
         if ddata[3] == "Application":
             dexec = ddata[2]
-            if shutil.which(dexec):
+            # if shutil.which(dexec):
+            if shutil.which(dexec.split(" ")[0]):
                 try:
-                    subprocess.Popen([dexec])
+                    # subprocess.Popen([dexec])
+                    subprocess.Popen(dexec.split(" "))
                 except Exception as E:
                     MyDialog("Error", str(E), self)
             else:
