@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.7
+# Version 0.6.8
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -1944,6 +1944,11 @@ class MainWin(QWidget):
                                 for iitem in items_position:
                                     ff.write(iitem)
                             file_is_changed = 0
+        # rebuild the file
+        if file_is_changed:
+            with open("items_position", "w") as ff:
+                for itm in items_position:
+                    ff.write(itm)
         # message
         if items_skipped:
             MyDialog("Info", "Too many items in the desktop folder to be all placed.", self)
