@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.8
+# Version 0.6.9
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -369,19 +369,24 @@ class MyQlist(QListView):
                                 event.ignore()
                                 return
                     # 
+                    ret = -5
                     for i in range(0, len(items), 3):
                         ttype = items[i]
                         item_type = items[i+1]
                         item_to_extract = items[i+2]
+                        #
+                        if item_to_extract == "":
+                            continue
+                        #
                         if item_type == "file":
                             # -aou rename the file to be copied -aot rename the file at destination - both if an item with the same name already exists
-                            ret = os.system("{0} {1} '-i!{2}' '{3}' -y -aou -p{4} -o{5} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, item_to_extract, archive_name, ARCHIVE_PASSWORD, dest_path))
+                            ret = os.system("{0} {1} '-i!{2}' '{3}' -y -aou -p'{4}' -o'{5}' 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, item_to_extract, archive_name, ARCHIVE_PASSWORD, dest_path))
                         elif item_type == "folder":
                             ttype = "x"
                             if passWord:
-                                ret = os.system("{0} {1} '{2}' *.* -r '{3}' -y -aou -p{4} -o{5} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, ARCHIVE_PASSWORD, dest_path))
+                                ret = os.system("{0} {1} '{2}' *.* -r '{3}' -y -aou -p'{4}' -o'{5}' 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, ARCHIVE_PASSWORD, dest_path))
                             else:
-                                ret = os.system("{0} {1} '{2}' *.* -r '{3}' -y -aou -o{4} 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, dest_path))
+                                ret = os.system("{0} {1} '{2}' *.* -r '{3}' -y -aou -o'{4}' 1>/dev/null".format(COMMAND_EXTRACTOR, ttype, archive_name, item_to_extract, dest_path))
                         time.sleep(0.5)
                     ### exit codes
                     # 0 No error
@@ -661,7 +666,7 @@ class passWord(QDialog):
     def getpswd(self):
         passwd = self.le1.text()
         try:
-            ptest = subprocess.check_output('{} t -p{} -bso0 -- "{}"'.format(COMMAND_EXTRACTOR, passwd, self.path), shell=True)
+            ptest = subprocess.check_output('{} t -p"{}" -bso0 -- "{}"'.format(COMMAND_EXTRACTOR, passwd, self.path), shell=True)
             if ptest.decode() == "":
                 self.arpass = passwd
                 self.close()
