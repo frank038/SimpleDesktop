@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.9
+# Version 0.6.10
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -241,7 +241,7 @@ class MyQlist(QListView):
                 psizeW = ICON_SIZE + (min(NUM_OVERLAY, num_item) * poffsetW) - poffsetW
                 psizeH = ICON_SIZE + (min(NUM_OVERLAY, num_item) * poffsetH) - poffsetH
                 pixmap = QPixmap(psizeW, psizeH)
-                pixmap.fill(QColor(253,253,253,0.0))
+                pixmap.fill(QColor(253,253,253,0))
                 incr_offsetW = poffsetW
                 incr_offsetH = poffsetH
                 items_idx_temp = self.item_idx
@@ -260,13 +260,13 @@ class MyQlist(QListView):
                             painter = QPainter(pixmap)
                             woffset = int((ICON_SIZE - pixmap1.size().width())/2)
                             ioffset = int((ICON_SIZE - pixmap1.size().height())/2)
-                            painter.drawPixmap(psizeW-ICON_SIZE+woffset, psizeH-ICON_SIZE+ioffset, pixmap1)
+                            painter.drawPixmap(int(psizeW-ICON_SIZE+woffset), int(psizeH-ICON_SIZE+ioffset), pixmap1)
                         else:
                             # limit the number of overlays
                             if i < NUM_OVERLAY:
                                 woffset = int((ICON_SIZE - pixmap1.size().width())/2)
                                 ioffset = int((ICON_SIZE - pixmap1.size().height())/2)
-                                painter.drawPixmap(psizeW-ICON_SIZE-incr_offsetW+woffset, psizeH-ICON_SIZE-incr_offsetH+ioffset, pixmap1)
+                                painter.drawPixmap(int(psizeW-ICON_SIZE-incr_offsetW+woffset), int(psizeH-ICON_SIZE-incr_offsetH+ioffset), pixmap1)
                                 incr_offsetW += poffsetW
                                 incr_offsetH += poffsetH
                             else:
@@ -528,7 +528,7 @@ class MyQlist(QListView):
             self.item_idx = []
             return
         if col_x <= num_col-1 and col_y <= num_row-1:
-            self.setPositionForIndex(QPoint(x, y) , self.item_idx[0])
+            self.setPositionForIndex(QPoint(int(x), int(y)) , self.item_idx[0])
         else:
             cells_taken = []
             desktop_items = []
@@ -747,7 +747,7 @@ class itemDelegate(QItemDelegate):
         xpad = int((ITEM_WIDTH - pw) / 2)
         ypad = int((ITEM_HEIGHT - ph) / 2)
         # painter.drawPixmap(itemx+xpad, itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4), -1,-1, pixmap,0,0,-1,-1)
-        painter.drawPixmap(itemx+xpad, itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4), pixmap)
+        painter.drawPixmap(int(itemx+xpad), int(itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4)), pixmap)
         # 
         fileInfo = QFileInfo(ppath)
         # skip trashcan and media
@@ -756,17 +756,17 @@ class itemDelegate(QItemDelegate):
                 if not fileInfo.isReadable() or not fileInfo.isWritable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
                     # painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, ppixmap,0,0,-1,-1)
-                    painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2), ppixmap)
+                    painter.drawPixmap(int(itemx+1+int(ITEM_SPACE/2)), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2)), ppixmap)
             else:
                 if not fileInfo.isReadable() or not fileInfo.isWritable() or not fileInfo.isExecutable():
                     ppixmap = QPixmap('icons/emblem-readonly.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
                     # painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, ppixmap,0,0,-1,-1)
-                    painter.drawPixmap(itemx+1+int(ITEM_SPACE/2), itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2), ppixmap)
+                    painter.drawPixmap(int(itemx+1+int(ITEM_SPACE/2)), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2)), ppixmap)
             #
             if os.path.islink(ppath):
                 lpixmap = QPixmap('icons/emblem-symbolic-link.svg').scaled(ICON_SIZE2, ICON_SIZE2, Qt.KeepAspectRatio, Qt.FastTransformation)
                 # painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2-1-ITEM_SPACE/2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2),-1,-1, lpixmap,0,0,-1,-1)
-                painter.drawPixmap(itemx+ITEM_WIDTH-ICON_SIZE2-1-ITEM_SPACE/2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2), lpixmap)
+                painter.drawPixmap(int(itemx+ITEM_WIDTH-ICON_SIZE2-1-ITEM_SPACE/2), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-ICON_SIZE2-int(ITEM_SPACE/2)), lpixmap)
         #
         painter.save()
         # text background colour
@@ -775,7 +775,7 @@ class itemDelegate(QItemDelegate):
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
             painter.setPen(QColor(CIRCLE_COLOR))
-            painter.drawEllipse(QRect(itemx+1+int(ITEM_SPACE/2),itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
+            painter.drawEllipse(QRect(int(itemx+1+int(ITEM_SPACE/2)),int(itemy+1),CIRCLE_SIZE,CIRCLE_SIZE))
             # skip trashcan and media
             if index.data(Qt.UserRole+1) == "file":
                 # tick symbol
@@ -798,19 +798,19 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/2,itemy+ITEM_HEIGHT-ST_HEIGHT*2-1,ITEM_WIDTH-ITEM_SPACE,st.size().height()), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(int(itemx+ITEM_SPACE/2),int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1),int(ITEM_WIDTH-ITEM_SPACE),int(st.size().height())), 5.0, 5.0, Qt.AbsoluteSize)
             #
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(itemx+ITEM_SPACE/2+2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-1, st)
+            painter.drawStaticText(int(itemx+ITEM_SPACE/2+2), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1), st)
         elif option.state & QStyle.State_MouseOver:
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setBrush(QColor(CIRCLE_COLOR))
             painter.setPen(QColor(CIRCLE_COLOR))
-            painter.drawEllipse(QRect(itemx+1+int(ITEM_SPACE/2),itemy+1,CIRCLE_SIZE,CIRCLE_SIZE))
+            painter.drawEllipse(QRect(int(itemx+1+int(ITEM_SPACE/2)),int(itemy+1),CIRCLE_SIZE,CIRCLE_SIZE))
             #
             qstring = index.data(0)
             #
@@ -819,7 +819,7 @@ class itemDelegate(QItemDelegate):
             ST2_WIDTH = st2.size().width() + TEXT_SHRINK
             #
             metrics = QFontMetrics(painter.font())
-            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH*2-ITEM_SPACE-ST2_WIDTH)
+            qstring = metrics.elidedText(qstring, Qt.ElideRight, int(ITEM_WIDTH*2-ITEM_SPACE-ST2_WIDTH))
             #
             st = QStaticText(qstring)
             st.setTextWidth(self.text_width - 4)
@@ -831,13 +831,13 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/2,itemy+ITEM_HEIGHT-ST_HEIGHT*2-1,ITEM_WIDTH-ITEM_SPACE,st.size().height()), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(int(itemx+ITEM_SPACE/2),int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1),int(ITEM_WIDTH-ITEM_SPACE),int(st.size().height())), 5.0, 5.0, Qt.AbsoluteSize)
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(itemx+ITEM_SPACE/2+2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-1, st)
+            painter.drawStaticText(int(itemx+ITEM_SPACE/2+2), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1), st)
         else:
             qstring = index.data(0)
             #
@@ -846,7 +846,7 @@ class itemDelegate(QItemDelegate):
             ST2_WIDTH = st2.size().width() + TEXT_SHRINK
             #
             metrics = QFontMetrics(painter.font())
-            qstring = metrics.elidedText(qstring, Qt.ElideRight, ITEM_WIDTH*2-ITEM_SPACE-ST2_WIDTH)
+            qstring = metrics.elidedText(qstring, Qt.ElideRight, int(ITEM_WIDTH*2-ITEM_SPACE-ST2_WIDTH))
             #
             st = QStaticText(qstring)
             st.setTextWidth(self.text_width - 4)
@@ -858,45 +858,21 @@ class itemDelegate(QItemDelegate):
                 painter.setBrush(QColor(color))
                 painter.setPen(QColor(color))
                 painter.setRenderHint(QPainter.Antialiasing)
-                painter.drawRoundedRect(QRect(itemx+ITEM_SPACE/2,itemy+ITEM_HEIGHT-ST_HEIGHT*2-1,ITEM_WIDTH-ITEM_SPACE,st.size().height()), 5.0, 5.0, Qt.AbsoluteSize)
+                painter.drawRoundedRect(QRect(int(itemx+ITEM_SPACE/2),int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1),int(ITEM_WIDTH-ITEM_SPACE),int(st.size().height())), 5.0, 5.0, Qt.AbsoluteSize)
             #
             if TEXT_COLOR:
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
             #
-            painter.drawStaticText(itemx+ITEM_SPACE/2+2, itemy+ITEM_HEIGHT-ST_HEIGHT*2-1, st)
+            painter.drawStaticText(int(itemx+ITEM_SPACE/2+2), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1), st)
         #
         painter.restore()
         
     
     def sizeHint(self, option, index):
-        # qstring = index.data(0)
-        # st = QStaticText(qstring)
-        # hh = st.size().height()
-        # return QSize(ITEM_WIDTH-ITEM_SPACE/2, ITEM_WIDTH-ITEM_SPACE/2+int(hh))
-        return QSize(ITEM_WIDTH, ITEM_HEIGHT)
+        return QSize(int(ITEM_WIDTH), int(ITEM_HEIGHT))
         
-        # # # index:: <PyQt5.QtCore.QModelIndex object at 0xb21e2e70>
-        # # print("index::", index)
-        # # return QSize(ITEM_WIDTH, ICON_SIZE)
-        # # # return QSize(ITEM_WIDTH+50, ICON_SIZE+50)
-        # # qstring = index.data(QFileSystemModel.FileNameRole)
-        # qstring = index.data(0)
-        # # print("TT", option.text, option.decorationSize, option.decorationPosition)
-        # #qstring = "a"
-        # st = QStaticText(qstring)
-        # # st.setTextWidth(self.text_width)
-        # # to = QTextOption(Qt.AlignCenter)
-        # # to.setWrapMode(QTextOption.WrapAnywhere)
-        # # st.setTextOption(to)
-        # # ww = st.size().width()
-        # hh = st.size().height()
-        # # return QSize(int(ww), int(hh)+ITEM_HEIGHT-ITEM_SPACE)
-        # return QSize(ITEM_WIDTH, ICON_SIZE+ITEM_SPACE/2+int(hh))
-        # # print("ggg", ITEM_WIDTH,ITEM_HEIGHT)
-        # # return QSize(ITEM_WIDTH, ITEM_HEIGHT)
-
 
 class thumbThread(threading.Thread):
     
@@ -1679,7 +1655,7 @@ class MainWin(QWidget):
     def fSetPositionForIndex(self, data, itemIdx):
         x = data[0]*ITEM_WIDTH+LEFT_M
         y = data[1]*ITEM_HEIGHT+TOP_M
-        self.listview.setPositionForIndex(QPoint(x, y), itemIdx)
+        self.listview.setPositionForIndex(QPoint(int(x), int(y)), itemIdx)
         
     
     # item positioning in the listview
@@ -2026,7 +2002,7 @@ class MainWin(QWidget):
                 itemIdx = self.listview.indexAt(event.pos())
                 item_rect = self.listview.visualRect(itemIdx)
                 # item selected at top-left
-                topLeft = QRect(item_rect.x()+int(ITEM_SPACE/2), item_rect.y(), CIRCLE_SIZE, CIRCLE_SIZE)
+                topLeft = QRect(int(item_rect.x()+int(ITEM_SPACE/2)), int(item_rect.y()), CIRCLE_SIZE, CIRCLE_SIZE)
                 if event.pos() in topLeft:
                     self.static_items = True
                     self.listview.setSelectionMode(QAbstractItemView.MultiSelection)
@@ -2129,7 +2105,7 @@ class MainWin(QWidget):
             self.desktopSelected(position)
             return
         vr = self.listview.visualRect(pointedItem)
-        pointedItem2 = self.listview.indexAt(QPoint(vr.x(),vr.y()))
+        pointedItem2 = self.listview.indexAt(QPoint(int(vr.x()),int(vr.y())))
         # in case of sticky selection
         if self.static_items == True:
             self.static_items = False
@@ -4876,38 +4852,6 @@ if __name__ == '__main__':
     window.setWindowFlags(window.windowFlags() | Qt.FramelessWindowHint)
     window.setGeometry(0, 0, WINW, WINH)
     window.show()
-    #########
-    # from Xlib.display import Display
-    # from Xlib import X
-    # windowID = int(window.winId())
-    # _display = Display()
-    # this_window = _display.create_resource_object('window', windowID)
-    ####
-    # L = 0
-    # R = 0
-    # T = 0
-    # B = 0
-    # # this_window.change_property(_display.intern_atom('_NET_WM_STRUT'),
-                                # # _display.intern_atom('CARDINAL'),
-                                # # 32, [L, R, T, B])
-    # # x = 0
-    # # y = x+WINW-1
-    # # this_window.change_property(_display.intern_atom('_NET_WM_STRUT_PARTIAL'),
-                           # # _display.intern_atom('CARDINAL'), 32,
-                           # # [L, R, T, B, 0, 0, 0, 0, x, y, T, B],
-                           # # X.PropModeReplace)
-    # _display.sync()
-    ####
-    # from ewmh import EWMH
-    # ewmh = EWMH()
-    # wins = ewmh.getClientList()
-    # for this_window in wins:
-        # if ewmh.getWmName(this_window).decode() == "qt5desktop.py":
-            # ewmh.setWmState(this_window, 1, '_NET_WM_STATE_SKIP_TASKBAR')
-            # ewmh.setWmState(this_window, 1, '_NET_WM_STATE_SKIP_PAGER')
-    # ewmh.display.flush()
-    # ewmh.display.sync()
-    #########
     ############
     # set new style globally
     if THEME_STYLE:
