@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.11
+# Version 0.6.12
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -1055,6 +1055,9 @@ class MainWin(QWidget):
     # the devices at program launch
     def on_media_detected(self):
         for device in self.context.list_devices(subsystem='block'):
+            # skip the devices the user doesnt want to be appear
+            if device.device_node in MEDIA_SKIP:
+                continue
             if 'DEVTYPE' in device.properties:
                 if device.get('ID_FS_USAGE') == "filesystem":
                     mountpoint = self.get_device_mountpoint(device.device_node)
@@ -1075,7 +1078,7 @@ class MainWin(QWidget):
                     else:
                         ttype = device.get('ID_TYPE')
                     #
-                    self.addMedia(device.device_node, name, ttype)
+                    self.addMedia(device.device_node, name, ttype, 0)
     
     
     #
@@ -1106,13 +1109,15 @@ class MainWin(QWidget):
     
     #
     def signal_media(self, action, ddevice, name, ttype):
+        if ddevice in MEDIA_SKIP:
+            return
         if action == "add":
-            self.addMedia(ddevice, name, ttype)
+            self.addMedia(ddevice, name, ttype, 1)
         elif action == "remove":
             self.removeMedia(ddevice)
     
     # add the device into the model and view
-    def addMedia(self, ddevice, name, ttype):
+    def addMedia(self, ddevice, name, ttype, media_notification):
         time.sleep(2)
         # the first empty cell
         data = self.itemSetPos2()
@@ -1146,7 +1151,7 @@ class MainWin(QWidget):
         # restore the positions
         self.listviewRestore2()
         # desktop notification
-        if USE_MEDIA and USE_MEDIA_NOTIFICATION == 2:
+        if USE_MEDIA and USE_MEDIA_NOTIFICATION == 2 and media_notification:
             if shutil.which("notify-send"):
                 icon_path = os.path.join(os.getcwd(), iicon_type)
                 # 
