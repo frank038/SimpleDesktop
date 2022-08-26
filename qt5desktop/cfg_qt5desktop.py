@@ -78,6 +78,8 @@ TRASH_NAME="Recycle Bin"
 USE_MEDIA=0
 # use desktop notification throu notify-send after a media has been ejected: 0 not - 1 yes - 2 also after inserted
 USE_MEDIA_NOTIFICATION=0
+# media to skip, comma separated values in the form /dev/xxx - not reccomanded for removable ones
+MEDIA_SKIP=[]
 # Paste and Merge, how to backup the new files: 0 add progressive number
 # in the form _(#) - 1 add date and time (without checking eventually
 # existing file at destination with same date and time suffix) 
