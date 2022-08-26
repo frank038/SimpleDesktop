@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.10
+# Version 0.6.11
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -162,7 +162,7 @@ ITEM_HEIGHT = ITEM_HEIGHT
 # amount of columns and rows
 num_col = 0 
 num_row = 0
-# reserved cells - items cannot be positioned there (type: indexes)
+# reserved cells - items cannot be positioned there (type: indexes); for instance: trash, media
 reserved_cells = []
 # text height
 ST_HEIGHT = 0
@@ -967,8 +967,6 @@ class MainWin(QWidget):
         # number of columns and rows
         self.num_col = num_col
         self.num_row = num_row
-        # reserved cells - items cannot be positioned there
-        self.reserved_cells = reserved_cells
         #
         self.listview.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.listview.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff) 
@@ -1010,7 +1008,7 @@ class MainWin(QWidget):
             self.csa = csaa+csab+csac+csad+csae+csaf+csag
         # item are added in the selected item list if clicked at its top-left position
         self.static_items = False
-        # desktop coordinates when right click - empty space
+        # desktop coordinates when right clicking - empty space
         self.background_coords = None
         # [[QPos], device]
         self.media_added = []
@@ -1142,6 +1140,9 @@ class MainWin(QWidget):
         self.model.appendRow(item)
         # set the position
         self.itemSetPos(item)
+        # store the position
+        global reserved_cells
+        reserved_cells.append(data)
         # restore the positions
         self.listviewRestore2()
         # desktop notification
@@ -1681,20 +1682,20 @@ class MainWin(QWidget):
     
     # itemSetPos - return the first empty cell in the listview
     def itemSetPos2(self):
-        # QPoint
+        # QPoint when right clicking
         if self.background_coords:
             cc = (self.background_coords.x() - LEFT_M) / ITEM_WIDTH
             rr = (self.background_coords.y() - TOP_M) / ITEM_HEIGHT
             self.background_coords = None
             return [int(cc), int(rr)]
-        #
+        # #
         items_position = []
         with open("items_position", "r") as ff:
             items_position = ff.readlines()
         #
         rr1 = 0
         cc1 = 0
-        #
+        # list of cells already taken
         list_pos = []
         for iitem in items_position:
             iitem_data = iitem.split("/")
@@ -1703,7 +1704,7 @@ class MainWin(QWidget):
         for cc in reversed(range(self.num_col)):
             for rr in range(self.num_row):
                 if [cc, rr] not in list_pos:
-                    if [cc, rr] in self.reserved_cells:
+                    if [cc, rr] in reserved_cells:
                         continue
                     #
                     cc1 = cc
@@ -1755,7 +1756,7 @@ class MainWin(QWidget):
         # empty cell counter
         empty_cell_counter = 0
         # max slots to be used
-        num_slot = self.num_col * self.num_row - len(self.reserved_cells)
+        num_slot = self.num_col * self.num_row - len(reserved_cells)
         # some items cannot be added in the view
         items_skipped = 0
         for iitem in items_position[:]:
@@ -4852,6 +4853,38 @@ if __name__ == '__main__':
     window.setWindowFlags(window.windowFlags() | Qt.FramelessWindowHint)
     window.setGeometry(0, 0, WINW, WINH)
     window.show()
+    #########
+    # from Xlib.display import Display
+    # from Xlib import X
+    # windowID = int(window.winId())
+    # _display = Display()
+    # this_window = _display.create_resource_object('window', windowID)
+    ####
+    # L = 0
+    # R = 0
+    # T = 0
+    # B = 0
+    # # this_window.change_property(_display.intern_atom('_NET_WM_STRUT'),
+                                # # _display.intern_atom('CARDINAL'),
+                                # # 32, [L, R, T, B])
+    # # x = 0
+    # # y = x+WINW-1
+    # # this_window.change_property(_display.intern_atom('_NET_WM_STRUT_PARTIAL'),
+                           # # _display.intern_atom('CARDINAL'), 32,
+                           # # [L, R, T, B, 0, 0, 0, 0, x, y, T, B],
+                           # # X.PropModeReplace)
+    # _display.sync()
+    ####
+    # from ewmh import EWMH
+    # ewmh = EWMH()
+    # wins = ewmh.getClientList()
+    # for this_window in wins:
+        # if ewmh.getWmName(this_window).decode() == "qt5desktop.py":
+            # ewmh.setWmState(this_window, 1, '_NET_WM_STATE_SKIP_TASKBAR')
+            # ewmh.setWmState(this_window, 1, '_NET_WM_STATE_SKIP_PAGER')
+    # ewmh.display.flush()
+    # ewmh.display.sync()
+    #########
     ############
     # set new style globally
     if THEME_STYLE:
