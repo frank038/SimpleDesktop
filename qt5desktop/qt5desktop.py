@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.12
+# Version 0.6.13
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -61,15 +61,46 @@ if OPEN_WITH:
     except Exception as E:
         OPEN_WITH = 0
 
-#
+
+# amount of columns and rows
+num_col = 0 
+num_row = 0
+
+# text height
+ST_HEIGHT = 0
+
+# reserved cells - items cannot be positioned there (type: indexes); for instance: trash, media
+reserved_cells = []
+
 # trash module
+TRASH_FILE = "trash_position"
+
+TRASH_FILE_ERROR = 0
+
 if USE_TRASH:
-    try:
-        import trash_module
-    except Exception as E:
-        app = QApplication(sys.argv)
-        fm = firstMessage("Error", "Error while importing the module:\n{}".format(str(E)))
-        sys.exit(app.exec_())
+    if os.path.exists(TRASH_FILE):
+        # load the position of the trashcan
+        try:
+            with open(TRASH_FILE, "r") as ff:
+                trash_pos = ff.readline()
+                txx, tyy = trash_pos.strip("\n").split("/")
+                if txx and tyy:
+                    reserved_cells.append([int(txx), int(tyy)])
+                else:
+                    TRASH_FILE_ERROR = 1
+        except:
+            TRASH_FILE_ERROR = 1
+    else:
+        try:
+            ff = open(TRASH_FILE, "w")
+            ff.write("")
+            ff.close()
+            TRASH_FILE_ERROR = 1
+        except:
+            USE_TRASH = 0
+            app = QApplication(sys.argv)
+            fm = firstMessage("Info", "The Recycle Bin cannot be activated, check your installation:\n{} not writable.".format(TRASH_FILE))
+            sys.exit(app.exec_())
 
 #
 if USE_THUMB == 1:
@@ -104,6 +135,8 @@ if "/usr/share" not in xdgDataDirs:
     xdgDataDirs.append("/usr/share")
 if os.path.expanduser('~')+"/.local/share" not in xdgDataDirs:
     xdgDataDirs.append(os.path.expanduser('~')+"/.local/share")
+if "/usr/share/" in xdgDataDirs:
+    xdgDataDirs.remove("/usr/share/")
 
 #### custom actions
 if not os.path.exists("modules_custom"):
@@ -158,14 +191,6 @@ BOTTOM_M = BOTTOM_M
 ITEM_SPACE = int(ITEM_SPACE/2)*2
 ITEM_WIDTH = ITEM_WIDTH
 ITEM_HEIGHT = ITEM_HEIGHT
-
-# amount of columns and rows
-num_col = 0 
-num_row = 0
-# reserved cells - items cannot be positioned there (type: indexes); for instance: trash, media
-reserved_cells = []
-# text height
-ST_HEIGHT = 0
 
 
 # get the folder size
@@ -226,6 +251,11 @@ class MyQlist(QListView):
                 filepath = os.path.join(DDIR, dname)
                 item_list.append(QUrl.fromLocalFile(filepath))
                 self.item_idx.append(index)
+            elif index.data(Qt.UserRole+1) == "trash":
+                if len(self.selectionModel().selectedIndexes()) > 1:
+                    continue
+                self.item_idx.append(index)
+                item_list.append("trash")
         # 
         drag = QDrag(self)
         # 
@@ -276,18 +306,33 @@ class MyQlist(QListView):
                 if painter:
                     painter.end()
         elif len(item_list) == 1:
-            try:
-                index = self.item_idx[0]
-                if index.data(Qt.UserRole+1) == "file":
-                    filepath = os.path.join(DDIR, index.data(0))
-                elif index.data(Qt.UserRole+1) == "desktop":
-                    dname = index.data(Qt.UserRole+2)[0]
-                    filepath = os.path.join(DDIR, dname)
-                if stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode) or stat.S_ISLNK(os.stat(filepath).st_mode):
-                    file_icon = index.data(1)
-                    pixmap = file_icon.pixmap(QSize(ICON_SIZE, ICON_SIZE))
-            except:
-                pixmap = QPixmap("icons/empty.svg").scaled(ICON_SIZE, ICON_SIZE, Qt.KeepAspectRatio, Qt.FastTransformation)
+            # the trashcan
+            if item_list[0] == "trash":
+                dname = TRASH_NAME
+                file_icon = index.data(1)
+                pixmap = file_icon.pixmap(QSize(ICON_SIZE, ICON_SIZE))
+                #
+                drag.setPixmap(pixmap)
+                data = QMimeData()
+                drag.setMimeData(data)
+                drag.setHotSpot(pixmap.rect().topLeft())
+                drag.exec_(Qt.MoveAction, Qt.MoveAction)
+                #
+                return
+            # other items
+            else:
+                try:
+                    index = self.item_idx[0]
+                    if index.data(Qt.UserRole+1) == "file":
+                        filepath = os.path.join(DDIR, index.data(0))
+                    elif index.data(Qt.UserRole+1) == "desktop":
+                        dname = index.data(Qt.UserRole+2)[0]
+                        filepath = os.path.join(DDIR, dname)
+                    if stat.S_ISREG(os.stat(filepath).st_mode) or stat.S_ISDIR(os.stat(filepath).st_mode) or stat.S_ISLNK(os.stat(filepath).st_mode):
+                        file_icon = index.data(1)
+                        pixmap = file_icon.pixmap(QSize(ICON_SIZE, ICON_SIZE))
+                except:
+                    pixmap = QPixmap("icons/empty.svg").scaled(ICON_SIZE, ICON_SIZE, Qt.KeepAspectRatio, Qt.FastTransformation)
         else:
             return
         #
@@ -356,7 +401,7 @@ class MyQlist(QListView):
                         MyDialog("Info", "Not writable:\n{}".format(os.path.basename(ifp)), None)
                         event.ignore()
                         return
-            #
+            # 
             if shutil.which(COMMAND_EXTRACTOR):
                 try:
                     global ARCHIVE_PASSWORD
@@ -502,6 +547,7 @@ class MyQlist(QListView):
     # dropEvent - some items have been moved around the desktop
     def dropEvent3(self, event):
         # already occupied cells
+        global reserved_cells
         cells_taken = reserved_cells[:]
         desktop_items = []
         cells_taken_temp = []
@@ -527,6 +573,7 @@ class MyQlist(QListView):
             cells_taken_temp = []
             self.item_idx = []
             return
+        #
         if col_x <= num_col-1 and col_y <= num_row-1:
             self.setPositionForIndex(QPoint(int(x), int(y)) , self.item_idx[0])
         else:
@@ -538,10 +585,28 @@ class MyQlist(QListView):
         # rebuild the file
         itemIdx = self.item_idx[0]
         custom_data = itemIdx.data(Qt.UserRole+1)
+        # 
         if custom_data == "file":
             item_name = itemIdx.data(0)
         elif custom_data == "desktop":
             item_name = itemIdx.data(Qt.UserRole+2)[0]
+        # trashcan
+        elif custom_data == "trash":
+            try:
+                # reset
+                cells_taken = []
+                desktop_items = []
+                cells_taken_temp = []
+                self.item_idx = []
+                #
+                with open(TRASH_FILE, "w") as ff:
+                    ff.write(str(col_x)+"/"+str(col_y)+"\n")
+                    reserved_cells_tmp = [[col_x, col_y], reserved_cells[1:]]
+                    reserved_cells = reserved_cells_tmp
+                #
+                return
+            except Exception as E:
+                return
         # 
         with open("items_position", "w") as ff:
             for iitem in desktop_items:
@@ -922,20 +987,45 @@ class MainWin(QWidget):
         ## calculate the new cell size
         ITEM_WIDTH += ITEM_SPACE
         ITEM_HEIGHT += ST_HEIGHT*2 + ITEM_SPACE
-        # number of columns and rows
-        global num_col
-        num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
-        global num_row
-        num_row = int((WINH-M_TOP-M_BOTTOM - BOTTOM_M)/ITEM_HEIGHT)
+        #
+        global USE_TRASH
+        if TRASH_FILE_ERROR:
+            with open("items_position", "r") as ff:
+                items_position_tc = ff.readlines()
+            items_position_tc2 = []
+            for iitem in items_position_tc:
+                if iitem == "\n":
+                    continue
+                x,y,n = iitem.split("/")
+                items_position_tc2.append([int(x), int(y)])
+            #
+            # get the first free cell
+            cx = None
+            cy = None
+            for ii in range(0, num_col):
+                for jj in range(0, num_row):
+                    if [ii, jj] in items_position_tc2:
+                        continue
+                    else:
+                        cx = ii
+                        cy = jj
+                    break
+                break
+            #
+            try:
+                with open(TRASH_FILE, "w") as ff:
+                    ff.write("{}/{}\n".format(cx, cy))
+                global reserved_cells
+                reserved_cells.append([cx, cy])
+            except:
+                USE_TRASH = 0
+                MyDialog("Error", "Cannot write {}.\nTrash Can disabled.".format(TRASH_FILE), self)
         #
         num_col_rest = int((WINW - M_LEFT - M_RIGHT - (num_col * ITEM_WIDTH))/(num_col))
         # num_row_rest = int((WINH - M_TOP - M_BOTTOM - num_row * ITEM_HEIGHT)/num_row)
         num_row_rest = 0
         ITEM_WIDTH += num_col_rest
         ITEM_HEIGHT += num_row_rest
-        ## reserved cells - items cannot be positioned there (type: indexes)
-        global reserved_cells
-        reserved_cells = [[0, num_row-1]]
         #
         # main box
         self.vbox = QBoxLayout(QBoxLayout.TopToBottom)
@@ -1021,15 +1111,22 @@ class MainWin(QWidget):
         #
         ### trash can
         self.trash_standartItem = None
-        if USE_TRASH:
-            # press the delete key to send to trash the selected items
-            self.clickable2(self.listview).connect(self.itemsToTrash)
         #
         # check for changes in the application directories
         fPath = [DDIR]
+        #
         if USE_TRASH:
-            fPath.append(TRASH_PATH)
-            # self.trash_desktop_signal.connect(self.signal_trash_desktop)
+            try:
+                import trash_module
+                # press the delete key to send to trash the selected items
+                self.clickable2(self.listview).connect(self.itemsToTrash)
+                #
+                fPath.append(TRASH_PATH)
+            except Exception as E:
+                USE_TRASH = 0
+                MyDialog("Error", "Cannot load the trash module.", self)
+            # fPath.append(TRASH_PATH)
+            # # self.trash_desktop_signal.connect(self.signal_trash_desktop)
         fileSystemWatcher = QFileSystemWatcher(fPath, self)
         fileSystemWatcher.directoryChanged.connect(self.directory_changed)
         #
@@ -4852,6 +4949,10 @@ if __name__ == '__main__':
     size = screen.size()
     WINW = size.width()
     WINH = size.height()
+    #
+    # number of columns and rows
+    num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
+    num_row = int((WINH-M_TOP-M_BOTTOM - BOTTOM_M)/ITEM_HEIGHT)
     #
     window = MainWin()
     window.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)
