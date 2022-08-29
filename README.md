@@ -15,7 +15,7 @@ The recycle bin icon can change to reflect its state, empty or not empty. To use
 
 Can handle desktop files (programs, directories and files as link). Using desktop files for folders and files don't let user manage directly them. Moreover, more files and folders with the same name can coexist at the same time. Actually they can be created with my program SimpleFM. Accept files from my Qt5archiver program.
 
-Limitations: only one item at time can change its position on the desktop. The desktop files cannot be copied, they can only be created and deleted.
+Limitations: only one item at time can change its position on the desktop; cannot detect any change in the screen resolution. The desktop files cannot be copied, they can only be created and deleted.
 
 Needed:
 - python3
