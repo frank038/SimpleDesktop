@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.13
+# Version 0.6.14
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -18,9 +18,37 @@ import threading
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
 from cfg_qt5desktop import *
+
 if USE_MEDIA:
     import pyudev
     import dbus
+
+if SCRN_RES:
+    from Xlib.display import Display
+    from Xlib import X
+    display = Display()
+    root = display.screen().root
+    root.change_attributes(event_mask=X.StructureNotifyMask)
+
+# screen resolution changed
+class winThread(QThread):
+    
+    sig = pyqtSignal(list)
+    
+    def __init__(self, display, parent=None):
+        super(winThread, self).__init__(parent)
+        self.display = display
+        self.root = self.display.screen().root
+        #
+        self.win_l = []
+        self.root.change_attributes(event_mask=X.PropertyChangeMask)
+        
+    #
+    def run(self):
+        while True:
+            event = display.next_event()
+            if event.type == X.ConfigureNotify:
+                self.sig.emit([root.get_geometry().width, root.get_geometry().height])
 
 
 class firstMessage(QWidget):
@@ -74,33 +102,6 @@ reserved_cells = []
 
 # trash module
 TRASH_FILE = "trash_position"
-
-TRASH_FILE_ERROR = 0
-
-if USE_TRASH:
-    if os.path.exists(TRASH_FILE):
-        # load the position of the trashcan
-        try:
-            with open(TRASH_FILE, "r") as ff:
-                trash_pos = ff.readline()
-                txx, tyy = trash_pos.strip("\n").split("/")
-                if txx and tyy:
-                    reserved_cells.append([int(txx), int(tyy)])
-                else:
-                    TRASH_FILE_ERROR = 1
-        except:
-            TRASH_FILE_ERROR = 1
-    else:
-        try:
-            ff = open(TRASH_FILE, "w")
-            ff.write("")
-            ff.close()
-            TRASH_FILE_ERROR = 1
-        except:
-            USE_TRASH = 0
-            app = QApplication(sys.argv)
-            fm = firstMessage("Info", "The Recycle Bin cannot be activated, check your installation:\n{} not writable.".format(TRASH_FILE))
-            sys.exit(app.exec_())
 
 #
 if USE_THUMB == 1:
@@ -228,7 +229,6 @@ class MyQlist(QListView):
         # the list of dragged items
         self.item_idx = []
         self.customMimeType = "application/x-customqt5archiver"
-        
     
     def startDrag(self, supportedActions):
         item_list = []
@@ -346,7 +346,7 @@ class MyQlist(QListView):
     
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:
-            ## the number of items to be copied must not exced the empty cells available
+            ## the number of items to be copied must not exceed the empty cells available
             # cells taken
             model_entries = self.model().rowCount()
             # total cells
@@ -792,7 +792,6 @@ class itemDelegate(QItemDelegate):
         #
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
-        iicon = index.data(1)
         ppath = os.path.join(DDIR, index.data(0))
         #
         painter.restore()
@@ -989,38 +988,6 @@ class MainWin(QWidget):
         ITEM_HEIGHT += ST_HEIGHT*2 + ITEM_SPACE
         #
         global USE_TRASH
-        if TRASH_FILE_ERROR:
-            with open("items_position", "r") as ff:
-                items_position_tc = ff.readlines()
-            items_position_tc2 = []
-            for iitem in items_position_tc:
-                if iitem == "\n":
-                    continue
-                x,y,n = iitem.split("/")
-                items_position_tc2.append([int(x), int(y)])
-            #
-            # get the first free cell
-            cx = None
-            cy = None
-            for ii in range(0, num_col):
-                for jj in range(0, num_row):
-                    if [ii, jj] in items_position_tc2:
-                        continue
-                    else:
-                        cx = ii
-                        cy = jj
-                    break
-                break
-            #
-            try:
-                with open(TRASH_FILE, "w") as ff:
-                    ff.write("{}/{}\n".format(cx, cy))
-                global reserved_cells
-                reserved_cells.append([cx, cy])
-            except:
-                USE_TRASH = 0
-                MyDialog("Error", "Cannot write {}.\nTrash Can disabled.".format(TRASH_FILE), self)
-        #
         num_col_rest = int((WINW - M_LEFT - M_RIGHT - (num_col * ITEM_WIDTH))/(num_col))
         # num_row_rest = int((WINH - M_TOP - M_BOTTOM - num_row * ITEM_HEIGHT)/num_row)
         num_row_rest = 0
@@ -1080,8 +1047,7 @@ class MainWin(QWidget):
         if USE_BACKGROUND_COLOUR == 1 or not os.path.exists("wallpaper.jpg"):
             self.listview.setStyleSheet("border: 0px; background-color: {};".format(BACKGROUND_COLOR))
         else:
-            # self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper.jpg) 0 0 0 0 stretch stretch;") # max-width:{0}px;min-width:{0}px; max-height:{1}px; min-height:{1}px;".format(WINW, WINH))
-            self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper.jpg); background-attachment: fixed;")
+            self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper.jpg); background-position: center;")
         #
         if USE_THUMB == 1:
             thread = thumbThread(DDIR, self.listview)
@@ -1125,8 +1091,7 @@ class MainWin(QWidget):
             except Exception as E:
                 USE_TRASH = 0
                 MyDialog("Error", "Cannot load the trash module.", self)
-            # fPath.append(TRASH_PATH)
-            # # self.trash_desktop_signal.connect(self.signal_trash_desktop)
+        #
         fileSystemWatcher = QFileSystemWatcher(fPath, self)
         fileSystemWatcher.directoryChanged.connect(self.directory_changed)
         #
@@ -1146,7 +1111,20 @@ class MainWin(QWidget):
         # 
         time.sleep(1)
         self.listview.show()
+        ########
+        if SCRN_RES:
+            self.mythread = winThread(Display())
+            self.mythread.sig.connect(self.wthreadslot)
+            self.mythread.start()
     
+    def wthreadslot(self, data):
+        if data:
+            global WINW
+            global WINH
+            NWD, NHD = data
+            if NWD != WINW:
+                WINW = NWD
+                self.restart()
     
     ######################### devices ########################
     # the devices at program launch
@@ -1845,6 +1823,68 @@ class MainWin(QWidget):
     
     # populate the model at program launch
     def listviewRestore(self):
+        ### add the trashcan
+        global USE_TRASH
+        if USE_TRASH:
+            # trash can position
+            TRASH_FILE_ERROR = 0
+            global reserved_cells
+            if os.path.exists(TRASH_FILE):
+                # load the position of the trashcan
+                try:
+                    with open(TRASH_FILE, "r") as ff:
+                        trash_pos = ff.readline()
+                        txx, tyy = trash_pos.strip("\n").split("/")
+                        if txx and tyy:
+                            # cannot exceed the desktop margins 
+                            if int(txx) > self.num_col-1 or int(tyy) > self.num_row-1:
+                                TRASH_FILE_ERROR = 1
+                            else:
+                                reserved_cells.append([int(txx), int(tyy)])
+                        else:
+                            TRASH_FILE_ERROR = 1
+                except:
+                    # TRASH_FILE_ERROR = 1
+                    MyDialog("Error", "Problem with the file {}.\nTrash Can disabled.".format(TRASH_FILE), self)
+                    USE_TRASH = 0
+            else:
+                try:
+                    ff = open(TRASH_FILE, "w")
+                    ff.write("")
+                    ff.close()
+                    TRASH_FILE_ERROR = 1
+                except:
+                    USE_TRASH = 0
+                    MyDialog("Error", "Cannot write {}.\nTrash Can disabled.".format(TRASH_FILE), self)
+            ### repositioning
+            if TRASH_FILE_ERROR:
+                data = self.itemSetPos2()
+                if data == [-1,-1]:
+                    MyDialog("Error", "No room for the trash Can.\nIt will be disabled.".format(TRASH_FILE), self)
+                    USE_TRASH = 0
+                else:
+                    cx, cy = data
+                if USE_TRASH:
+                    try:
+                        with open(TRASH_FILE, "w") as ff:
+                            ff.write("{}/{}\n".format(cx, cy))
+                        reserved_cells.append([cx, cy])
+                    except:
+                        USE_TRASH = 0
+                        MyDialog("Error", "Cannot write {}.\nTrash Can disabled.".format(TRASH_FILE), self)
+        ### choose the right icon and add it in the model
+        if USE_TRASH:
+            tmp = os.listdir(TRASH_PATH)
+            if tmp:
+                iicon = QIcon.fromTheme("user-trash-full")
+            else:
+                iicon = QIcon.fromTheme("user-trash")
+            iitem = TRASH_NAME
+            item = QStandardItem(iicon, iitem)
+            item.setData("trash", Qt.UserRole + 1)
+            self.model.appendRow(item)
+            self.trash_standartItem = item
+        #####################
         # the items in the file
         items_position = []
         if os.path.exists("items_position"):
@@ -1867,12 +1907,17 @@ class MainWin(QWidget):
             # reached the number of empty cells available
             if empty_cell_counter == num_slot:
                 items_skipped = 1
-                # remove excedent items
+                # remove exceedent items
                 file_is_changed = 1
                 items_position.remove(iitem)
                 continue
             x, y, item_name_temp = iitem.split("/")
             item_name = item_name_temp.strip("\n")
+            # repositioning of the already existent items
+            if int(x) > self.num_col-1 or int(y) > self.num_row-1:
+                file_is_changed = 1
+                self.desktop_items.append(item_name)
+                continue
             # 
             if os.path.exists(os.path.join(DDIR, item_name)) or os.path.islink(os.path.join(DDIR, item_name)):
                 # fill the model
@@ -1939,18 +1984,7 @@ class MainWin(QWidget):
                 # remove no more existent items
                 file_is_changed = 1
                 items_position.remove(iitem)
-        ### add the trashcan
-        if USE_TRASH:
-            tmp = os.listdir(TRASH_PATH)
-            if tmp:
-                iicon = QIcon.fromTheme("user-trash-full")
-            else:
-                iicon = QIcon.fromTheme("user-trash")
-            iitem = TRASH_NAME
-            item = QStandardItem(iicon, iitem)
-            item.setData("trash", Qt.UserRole + 1)
-            self.model.appendRow(item)
-            self.trash_standartItem = item
+        #
         ### add new items
         if not items_skipped:
             for item_name in self.desktop_items:
@@ -2069,7 +2103,7 @@ class MainWin(QWidget):
                 # normal items and desktop files
                 for iitem in items_position:
                     x, y, i_name = iitem.split("/")
-                    # repositioning if excede the screen limits
+                    # repositioning if exceed the screen limits
                     max_width = (num_col-1)*ITEM_WIDTH
                     max_height = (num_row-1)*ITEM_HEIGHT
                     # 
@@ -2141,12 +2175,16 @@ class MainWin(QWidget):
                                 return file_icon
                             else:
                                 file_icon = QIcon.fromTheme(imime.iconName())
-                                if file_icon:
+                                if not file_icon.isNull():
                                     return file_icon
+                                else:
+                                    return QIcon("icons/empty.svg")
                         else:
                             file_icon = QIcon.fromTheme(imime.iconName())
-                            if file_icon:
+                            if not file_icon.isNull():
                                 return file_icon
+                            else:
+                                return QIcon("icons/empty.svg")
                     except:
                         pass
             #
@@ -2174,11 +2212,12 @@ class MainWin(QWidget):
                             if os.path.exists(icon_name_path):
                                 return QIcon(icon_name_path)
                             else:
-                                return QIcon.fromTheme("folder")
+                                return QIcon.fromTheme("folder", QIcon("icons/folder.svg"))
                 else:
-                    return QIcon.fromTheme("folder")
+                    return QIcon.fromTheme("folder", QIcon("icons/folder.svg"))
         else:
-            return QIcon.fromTheme("text-plain")
+            # return QIcon.fromTheme("text-plain")
+            return QIcon("icons/empty.svg")
     
     
     # self.setIcons
@@ -4665,7 +4704,7 @@ class pasteNmergeDialog(QDialog):
             overwriteButton.setToolTip("All the files will be overwritten.")
         hbox.addWidget(overwriteButton)
         overwriteButton.clicked.connect(lambda:self.fsetValue(2))
-        # add an preformatted extension to the items
+        # add a preformatted extension to the items
         automaticButton = QPushButton("Automatic")
         automaticButton.setToolTip("A suffix will be added to files an folders.")
         hbox.addWidget(automaticButton)

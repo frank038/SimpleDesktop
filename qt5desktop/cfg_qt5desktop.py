@@ -100,6 +100,8 @@ USE_BACKGROUND_COLOUR=0
 BACKGROUND_COLOR="#878787"
 # show the exit button: 0 no - 1 yes
 SHOW_EXIT=1
+# track screen resolution changes: 0 no - 1 yes
+SCRN_RES = 1
 ### needed for qt5archiver
 # usually 7z - or 7za
 COMMAND_EXTRACTOR="7z"
