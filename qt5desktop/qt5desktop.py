@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.14
+# Version 0.6.15
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -2170,7 +2170,6 @@ class MainWin(QWidget):
                     try:
                         if USE_THUMB == 1:
                             file_icon = self.evaluate_pixbuf(ireal_path, imime.name())
-                            #
                             if file_icon != "Null":
                                 return file_icon
                             else:
@@ -2178,13 +2177,17 @@ class MainWin(QWidget):
                                 if not file_icon.isNull():
                                     return file_icon
                                 else:
-                                    return QIcon("icons/empty.svg")
+                                    # return QIcon("icons/empty.svg")
+                                    pxmi = QPixmap("icons/empty.svg").scaled(ICON_SIZE, ICON_SIZE, Qt.KeepAspectRatio, Qt.FastTransformation)
+                                    return QIcon(pxmi)
                         else:
                             file_icon = QIcon.fromTheme(imime.iconName())
                             if not file_icon.isNull():
                                 return file_icon
                             else:
-                                return QIcon("icons/empty.svg")
+                                # return QIcon("icons/empty.svg")
+                                pxmi = QPixmap("icons/empty.svg").scaled(ICON_SIZE, ICON_SIZE, Qt.KeepAspectRatio, Qt.FastTransformation)
+                                return QIcon(pxmi)
                     except:
                         pass
             #
@@ -2216,8 +2219,9 @@ class MainWin(QWidget):
                 else:
                     return QIcon.fromTheme("folder", QIcon("icons/folder.svg"))
         else:
-            # return QIcon.fromTheme("text-plain")
-            return QIcon("icons/empty.svg")
+            # return QIcon("icons/empty.svg")
+            pxmi = QPixmap("icons/empty.svg").scaled(ICON_SIZE, ICON_SIZE, Qt.KeepAspectRatio, Qt.FastTransformation)
+            return QIcon(pxmi)
     
     
     # self.setIcons
