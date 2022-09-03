@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.15
+# Version 0.6.16
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -1584,6 +1584,7 @@ class MainWin(QWidget):
                 if imime.name() == "application/x-desktop":
                     # program name - icon - exec/URL - type (Application/Directory/Link)
                     ddata = self.getDesktopData(ireal_path)
+                    #
                     if ddata:
                         dname = ddata[0]
                         # 
@@ -1601,9 +1602,14 @@ class MainWin(QWidget):
                                     if iicon.isNull() or iicon.name() == "":
                                         iicon = QIcon("icons/unknown.svg")
                             elif ddata[3] == "Link":
-                                iicon = QIcon(ddata[1])
+                                # iicon = QIcon(ddata[1])
+                                # if iicon.isNull() or iicon.name() == "":
+                                    # iicon = QIcon("icons/unknown.svg")
+                                iicon = QIcon.fromTheme(ddata[1])
                                 if iicon.isNull() or iicon.name() == "":
-                                    iicon = QIcon("icons/unknown.svg")
+                                    iicon = QIcon(ddata[1])
+                                    if iicon.isNull() or iicon.name() == "":
+                                        iicon = QIcon("icons/unknown.svg")
                         else:
                             if ddata[3] == "Link":
                                 imime = QMimeDatabase().mimeTypeForFile(ddata[2][7:], QMimeDatabase.MatchDefault)
@@ -1923,6 +1929,7 @@ class MainWin(QWidget):
                 # fill the model
                 ireal_path = os.path.join(DDIR, item_name)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
+                print("1932", imime.name(), ireal_path)
                 if imime.name() == "application/x-desktop":
                     # name - icon - exec/URL - type (Application/Directory/Link)
                     ddata = self.getDesktopData(ireal_path)
@@ -1942,9 +1949,14 @@ class MainWin(QWidget):
                                     if iicon.isNull():
                                         iicon = QIcon("icons/unknown.svg")
                             elif ddata[3] == "Link":
-                                iicon = QIcon(ddata[1])
+                                # iicon = QIcon(ddata[1])
+                                # if iicon.isNull():
+                                    # iicon = QIcon("icons/unknown.svg")
+                                iicon = QIcon.fromTheme(ddata[1])
                                 if iicon.isNull():
-                                    iicon = QIcon("icons/unknown.svg")
+                                    iicon = QIcon(ddata[1])
+                                    if iicon.isNull():
+                                        iicon = QIcon("icons/unknown.svg")
                         else:
                             if ddata[3] == "Link":
                                 imime = QMimeDatabase().mimeTypeForFile(ddata[2][7:], QMimeDatabase.MatchDefault)
