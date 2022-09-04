@@ -53,7 +53,7 @@ TEXT_SHADOW_SHIFT=2
 # text shadow colour in the form #AARRGGBB
 TEXT_SHADOW_COLOR="#FF999999"
 # draw a rouded rectangle back the text: 0 no - 1 yes
-TEXT_BACKGROUND=
+TEXT_BACKGROUND=0
 # text background colors
 TRED=233
 TGREEN=94
