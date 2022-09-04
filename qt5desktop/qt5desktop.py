@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.6.16
+# Version 0.6.17
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -810,7 +810,10 @@ class itemDelegate(QItemDelegate):
         # 
         xpad = int((ITEM_WIDTH - pw) / 2)
         ypad = int((ITEM_HEIGHT - ph) / 2)
-        # painter.drawPixmap(itemx+xpad, itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4), -1,-1, pixmap,0,0,-1,-1)
+        # disegna un rettangolo dietro
+        # if index.data(Qt.UserRole+1) == "file":
+            # painter.fillRect(QRect(QPoint(int(itemx+xpad)-30, int(itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4)-30)), pixmap.size()+QSize(60,60)), QColor(255,255,0,45))
+        # # painter.drawPixmap(itemx+xpad, itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4), -1,-1, pixmap,0,0,-1,-1)
         painter.drawPixmap(int(itemx+xpad), int(itemy+ypad-ST_HEIGHT-int(ITEM_SPACE/4)), pixmap)
         # 
         fileInfo = QFileInfo(ppath)
@@ -868,6 +871,12 @@ class itemDelegate(QItemDelegate):
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
+            # shadow
+            if TEXT_SHADOW:
+                painter.save()
+                painter.setPen(QColor(TEXT_SHADOW_COLOR))
+                painter.drawStaticText(int(itemx+ITEM_SPACE/2+2)+TEXT_SHADOW_SHIFT, int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1)+TEXT_SHADOW_SHIFT, st)
+                painter.restore()
             #
             painter.drawStaticText(int(itemx+ITEM_SPACE/2+2), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1), st)
         elif option.state & QStyle.State_MouseOver:
@@ -900,6 +909,12 @@ class itemDelegate(QItemDelegate):
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
+            # shadow
+            if TEXT_SHADOW:
+                painter.save()
+                painter.setPen(QColor(TEXT_SHADOW_COLOR))
+                painter.drawStaticText(int(itemx+ITEM_SPACE/2+2)+TEXT_SHADOW_SHIFT, int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1)+TEXT_SHADOW_SHIFT, st)
+                painter.restore()
             #
             painter.drawStaticText(int(itemx+ITEM_SPACE/2+2), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1), st)
         else:
@@ -928,6 +943,12 @@ class itemDelegate(QItemDelegate):
                 painter.setPen(QColor(TEXT_COLOR))
             else:
                 painter.setPen(QColor(option.palette.color(QPalette.WindowText)))
+            # shadow
+            if TEXT_SHADOW:
+                painter.save()
+                painter.setPen(QColor(TEXT_SHADOW_COLOR))
+                painter.drawStaticText(int(itemx+ITEM_SPACE/2+2)+TEXT_SHADOW_SHIFT, int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1)+TEXT_SHADOW_SHIFT, st)
+                painter.restore()
             #
             painter.drawStaticText(int(itemx+ITEM_SPACE/2+2), int(itemy+ITEM_HEIGHT-ST_HEIGHT*2-1), st)
         #
@@ -1929,7 +1950,7 @@ class MainWin(QWidget):
                 # fill the model
                 ireal_path = os.path.join(DDIR, item_name)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
-                print("1932", imime.name(), ireal_path)
+                #
                 if imime.name() == "application/x-desktop":
                     # name - icon - exec/URL - type (Application/Directory/Link)
                     ddata = self.getDesktopData(ireal_path)

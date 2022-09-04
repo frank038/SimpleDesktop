@@ -45,10 +45,15 @@ THUMB_SIZE=160
 TEXT_SHRINK=0
 # other icons size: link and permissions
 ICON_SIZE2=36
-# text color - "" to use default
+# text colour in the form #AARRGGBB - "" to use default
 TEXT_COLOR=""
-# draw a background back the text: 0 no - 1 yes
-TEXT_BACKGROUND=1
+# draw the shadow back the text: 0 no - 1 yes
+TEXT_SHADOW=1
+TEXT_SHADOW_SHIFT=2
+# text shadow colour in the form #AARRGGBB
+TEXT_SHADOW_COLOR="#FF999999"
+# draw a rouded rectangle back the text: 0 no - 1 yes
+TEXT_BACKGROUND=
 # text background colors
 TRED=233
 TGREEN=94
