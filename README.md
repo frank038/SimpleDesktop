@@ -1,7 +1,7 @@
 # SimpleDesktop
 A simple and lite desktop manager.
 
-Version 0.6.17
+Version 0.7
 
 Create the empty file "items_position" in the program folder or use the tar packed version.
 
