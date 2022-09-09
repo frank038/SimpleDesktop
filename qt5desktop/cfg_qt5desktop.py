@@ -1,5 +1,7 @@
 # the folder to set as desktop in the home directory
 USER_DESKTOP="Desktop"
+# the terminal to use or leave "" for the default one if setted
+USER_TERMINAL = ""
 ## viewport margins
 # left margin
 M_LEFT=0

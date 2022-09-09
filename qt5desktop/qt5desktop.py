@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.7
+# Version 0.7.2
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -795,11 +795,14 @@ class classItemComment(QDialog):
         self.newComment = self.le1.text()
         self.close()
 
-
+row_col_recalculate = 0
+ITEM_WIDTH_RECALCULATE = 0
+ITEM_HEIGHT_RECALCULATE = 0
 class itemDelegate(QItemDelegate):
 
     def __init__(self, parent=None):
         super(itemDelegate, self).__init__(parent)
+        self.parent = parent
         self.text_width = ITEM_WIDTH - ITEM_SPACE
     
     def paint(self, painter, option, index):
@@ -972,6 +975,17 @@ class itemDelegate(QItemDelegate):
         
     
     def sizeHint(self, option, index):
+        # recalculate num_row and num_col
+        global row_col_recalculate
+        if not row_col_recalculate:
+            global ITEM_WIDTH_RECALCULATE
+            global ITEM_HEIGHT_RECALCULATE
+            self.parent.num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
+            self.parent.num_row = int((WINH-M_TOP-M_BOTTOM)/ITEM_HEIGHT)
+            ITEM_WIDTH_RECALCULATE = int(ITEM_WIDTH)
+            ITEM_HEIGHT_RECALCULATE = int(ITEM_HEIGHT)
+            row_col_recalculate = 1
+        #
         return QSize(int(ITEM_WIDTH), int(ITEM_HEIGHT))
         
 
@@ -1076,7 +1090,7 @@ class MainWin(QWidget):
         self.listview.customContextMenuRequested.connect(self.onRightClick)
         #
         self.listview.viewport().setAttribute(Qt.WA_Hover)
-        self.listview.setItemDelegate(itemDelegate())
+        self.listview.setItemDelegate(itemDelegate(self))
         # 
         self.listview.viewport().installEventFilter(self)
         #
@@ -1133,6 +1147,7 @@ class MainWin(QWidget):
         fileSystemWatcher.directoryChanged.connect(self.directory_changed)
         #
         if USE_MEDIA:
+            self.count_a = 0
             self.context = pyudev.Context()
             monitor = pyudev.Monitor.from_netlink(self.context)
             monitor.filter_by('block')
@@ -1195,6 +1210,9 @@ class MainWin(QWidget):
     
     #
     def mediaEvent(self, action, device):
+        # if self.count_a:
+            # return
+        # self.count_a += 1
         if action == "add":
             if 'DEVTYPE' in device.properties:
                 if device.get('ID_FS_USAGE') == "filesystem":
@@ -1287,6 +1305,9 @@ class MainWin(QWidget):
                     ret = self.model.removeRow(row)
                     # True if removed
                     if ret:
+                        # remove the device from the reserved cells
+                        global reserved_cells
+                        reserved_cells.remove(self.media_added[mm][0])
                         # remove the device from the list
                         del self.media_added[mm]
                         # restore the positions
@@ -1310,7 +1331,6 @@ class MainWin(QWidget):
                                 # 
                                 command = ["notify-send", "-i", icon_path, "-t", "3000", "-u", "normal", item_display_name, "Ejected"]
                                 subprocess.Popen(command)
-    
     
     # get the device mount point
     def get_device_mountpoint(self, ddevice):
@@ -1619,7 +1639,7 @@ class MainWin(QWidget):
                 ireal_path = os.path.join(DDIR, itd)
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                 if imime.name() == "application/x-desktop":
-                    # program name - icon - exec/URL - type (Application/Directory/Link)
+                    # program name - icon - exec/URL - type (Application/Directory/Link) - terminal
                     ddata = self.getDesktopData(ireal_path)
                     #
                     if ddata:
@@ -1658,7 +1678,7 @@ class MainWin(QWidget):
                         dexec = ddata[2]
                         item = QStandardItem(iicon, dname)
                         item.setData("desktop", Qt.UserRole + 1)
-                        item.setData([itd, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
+                        item.setData([itd, ddata[1], ddata[2], ddata[3], ddata[4]], Qt.UserRole + 2)
                         # if ddata[3] == "Directory" or ddata[3] == "Link":
                             # item.setData(ddata[2][7:], Qt.ToolTipRole)
                         self.model.appendRow(item)
@@ -1694,8 +1714,9 @@ class MainWin(QWidget):
                 dname = entry.getName() # program name
                 dicon = entry.getIcon() # icon
                 dexec = entry.getExec() # executable
+                dterm = entry.getTerminal() # the program must to be used with a terminal
                 if dname and dexec:
-                    return [dname, dicon, dexec, dtype]
+                    return [dname, dicon, dexec, dtype, dterm]
             elif dtype == "Directory" or dtype == "Link":
                 dname = entry.getName() # directory name
                 dicon = entry.getIcon() # icon
@@ -1968,7 +1989,7 @@ class MainWin(QWidget):
                 imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                 #
                 if imime.name() == "application/x-desktop":
-                    # name - icon - exec/URL - type (Application/Directory/Link)
+                    # name - icon - exec/URL - type (Application/Directory/Link) - terminal
                     ddata = self.getDesktopData(ireal_path)
                     if ddata:
                         dname = ddata[0]
@@ -2005,7 +2026,10 @@ class MainWin(QWidget):
                         dexec = ddata[2]
                         item = QStandardItem(iicon, dname)
                         item.setData("desktop", Qt.UserRole + 1)
-                        item.setData([item_name, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
+                        if ddata[3] == "Application":
+                            item.setData([item_name, ddata[1], ddata[2], ddata[3], ddata[4]], Qt.UserRole + 2)
+                        else:
+                            item.setData([item_name, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
                         # if ddata[3] == "Directory" or ddata[3] == "Link":
                             # item.setData(ddata[2][7:], Qt.ToolTipRole)
                         self.model.appendRow(item)
@@ -2056,7 +2080,7 @@ class MainWin(QWidget):
                         ireal_path = os.path.join(DDIR, item_name)
                         imime = QMimeDatabase().mimeTypeForFile(ireal_path, QMimeDatabase.MatchDefault)
                         if imime.name() == "application/x-desktop":
-                            # name - icon - exec/URL - type
+                            # name - icon - exec/URL - type - terminal
                             ddata = self.getDesktopData(ireal_path)
                             if ddata:
                                 dname = ddata[0]
@@ -2089,7 +2113,7 @@ class MainWin(QWidget):
                                 dexec = ddata[2]
                                 item = QStandardItem(iicon, dname)
                                 item.setData("desktop", Qt.UserRole + 1)
-                                item.setData([item_name, ddata[1], ddata[2], ddata[3]], Qt.UserRole + 2)
+                                item.setData([item_name, ddata[1], ddata[2], ddata[3], ddata[4]], Qt.UserRole + 2)
                             else:
                                 iicon = self.setIcons(os.path.join(DDIR, item_name))
                                 item = QStandardItem(iicon, item_name)
@@ -2672,15 +2696,31 @@ class MainWin(QWidget):
     
     # launch a program from its desktop file
     def flaunchDesktop(self, index):
-        # name - icon - exec - type
+        # name - icon - exec - type - terminal
         ddata = index.data(Qt.UserRole+2)
         if ddata[3] == "Application":
             dexec = ddata[2]
+            dterm = ddata[4]
             # if shutil.which(dexec):
             if shutil.which(dexec.split(" ")[0]):
                 try:
-                    # subprocess.Popen([dexec])
-                    subprocess.Popen(dexec.split(" "))
+                    if dterm:
+                        TTERM = None
+                        if USER_TERMINAL:
+                            TTERM = USER_TERMINAL
+                        else:
+                            try:
+                                TTERM = os.environ["TERMINAL"]
+                            except KeyError:
+                                pass
+                        #
+                        if TTERM:
+                            os.system("{} -e {}".format(TTERM, dexec))
+                        else:
+                            MyDialog("Info", "Cannot find a terminal.", self)
+                    else:
+                        # subprocess.Popen([dexec])
+                        subprocess.Popen(dexec.split(" "))
                 except Exception as E:
                     MyDialog("Error", str(E), self)
             else:
@@ -5042,7 +5082,7 @@ if __name__ == '__main__':
     WINW = size.width()
     WINH = size.height()
     #
-    # number of columns and rows
+    # number of columns and rows 
     num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
     num_row = int((WINH-M_TOP-M_BOTTOM - BOTTOM_M)/ITEM_HEIGHT)
     #
