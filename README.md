@@ -2,6 +2,7 @@
 A simple and lite desktop manager.
 
 Version 0.7.2
+
 Free to use and modify.
 
 Create the empty file "items_position" in the program folder or use the tar packed version.
