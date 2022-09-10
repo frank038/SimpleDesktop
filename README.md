@@ -1,7 +1,7 @@
 # SimpleDesktop
 A simple and lite desktop manager.
 
-Version 0.7.2
+Version 0.7.3
 
 Free to use and modify.
 
