@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.7.4
+# Version 0.7.5
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -19,6 +19,15 @@ from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
 from cfg_qt5desktop import *
 
+TRASH_MODULE_IMPORTED = 0
+if USE_TRASH:
+    try:
+        import trash_module
+        TRASH_MODULE_IMPORTED = 1
+    except:
+        USE_TRASH = 0
+        TRASH_MODULE_IMPORTED = 0
+        
 
 if USE_MEDIA:
     import pyudev
@@ -1140,16 +1149,23 @@ class MainWin(QWidget):
         # check for changes in the application directories
         fPath = [DDIR]
         #
-        if USE_TRASH:
-            try:
-                import trash_module
-                # press the delete key to send to trash the selected items
-                self.clickable2(self.listview).connect(self.itemsToTrash)
-                #
-                fPath.append(TRASH_PATH)
-            except Exception as E:
-                USE_TRASH = 0
-                MyDialog("Error", "Cannot load the trash module.", self)
+        # if USE_TRASH:
+            # try:
+                # import trash_module
+                # # press the delete key to send to trash the selected items
+                # self.clickable2(self.listview).connect(self.itemsToTrash)
+                # #
+                # fPath.append(TRASH_PATH)
+            # except Exception as E:
+                # USE_TRASH = 0
+                # MyDialog("Error", "Cannot load the trash module.", self)
+        #
+        if USE_TRASH and TRASH_MODULE_IMPORTED:
+            self.clickable2(self.listview).connect(self.itemsToTrash)
+            #
+            fPath.append(TRASH_PATH)
+        else:
+            MyDialog("Error", "Cannot load the trash module.", self)
         #
         fileSystemWatcher = QFileSystemWatcher(fPath, self)
         fileSystemWatcher.directoryChanged.connect(self.directory_changed)
