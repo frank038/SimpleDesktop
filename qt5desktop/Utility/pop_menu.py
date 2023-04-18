@@ -107,7 +107,8 @@ class getMenu():
                         hidden = entry.getHidden()
                         nodisplay = entry.getNoDisplay()
                         # do not show those marked as hidden or not to display
-                        if hidden or nodisplay:
+                        # if hidden or nodisplay:
+                        if hidden:
                             continue
                         # item.name
                         fname = entry.getName()
