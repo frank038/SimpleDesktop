@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version 0.7.3
+# Version 0.7.4
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -975,16 +975,16 @@ class itemDelegate(QItemDelegate):
         
     
     def sizeHint(self, option, index):
-        # recalculate num_row and num_col
-        global row_col_recalculate
-        if not row_col_recalculate:
-            global ITEM_WIDTH_RECALCULATE
-            global ITEM_HEIGHT_RECALCULATE
-            self.parent.num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
-            self.parent.num_row = int((WINH-M_TOP-M_BOTTOM)/ITEM_HEIGHT)
-            ITEM_WIDTH_RECALCULATE = int(ITEM_WIDTH)
-            ITEM_HEIGHT_RECALCULATE = int(ITEM_HEIGHT)
-            row_col_recalculate = 1
+        # # recalculate num_row and num_col
+        # global row_col_recalculate
+        # if not row_col_recalculate:
+            # global ITEM_WIDTH_RECALCULATE
+            # global ITEM_HEIGHT_RECALCULATE
+            # self.parent.num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
+            # self.parent.num_row = int((WINH-M_TOP-M_BOTTOM)/ITEM_HEIGHT)
+            # ITEM_WIDTH_RECALCULATE = int(ITEM_WIDTH)
+            # ITEM_HEIGHT_RECALCULATE = int(ITEM_HEIGHT)
+            # row_col_recalculate = 1
         #
         return QSize(int(ITEM_WIDTH), int(ITEM_HEIGHT))
         
@@ -1019,7 +1019,7 @@ class MainWin(QWidget):
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
         self.setContentsMargins(0,0,0,0)
-        # 
+        #
         global ICON_SIZE
         global THUMB_SIZE
         global ITEM_WIDTH
@@ -1039,16 +1039,23 @@ class MainWin(QWidget):
         ITEM_HEIGHT += ST_HEIGHT*2 + ITEM_SPACE
         #
         global USE_TRASH
-        num_col_rest = int((WINW - M_LEFT - M_RIGHT - (num_col * ITEM_WIDTH))/(num_col))
-        # num_row_rest = int((WINH - M_TOP - M_BOTTOM - num_row * ITEM_HEIGHT)/num_row)
-        num_row_rest = 0
-        ITEM_WIDTH += num_col_rest
-        ITEM_HEIGHT += num_row_rest
+        global M_TOP
+        global M_LEFT
+        # number of columns and rows
+        global num_col
+        global num_row
+        num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
+        num_row = int((WINH-M_TOP-M_BOTTOM - BOTTOM_M)/ITEM_HEIGHT)
+        #
+        M_TOP += int(abs(WINH - M_TOP - M_BOTTOM - (num_row * ITEM_HEIGHT))/2)
+        M_LEFT += int(abs(WINW - M_LEFT - M_RIGHT - (num_col * ITEM_WIDTH))/2)
         #
         # main box
-        self.vbox = QBoxLayout(QBoxLayout.TopToBottom)
+        self.vbox = QBoxLayout(QBoxLayout.TopToBottom, self)
         self.vbox.setContentsMargins(QMargins(0,0,0,0))
+        self.vbox.setSpacing(0)
         self.setLayout(self.vbox)
+        #
         # the list of items in the folder at program launch
         self.desktop_items = os.listdir(DDIR)
         # remove the hidden items
@@ -1058,6 +1065,7 @@ class MainWin(QWidget):
         ##################
         self.listview = MyQlist()
         self.listview.setContentsMargins(0,0,0,0)
+        self.listview.setSpacing(0)
         # disable the double clicking renaming
         self.listview.setEditTriggers(QAbstractItemView.NoEditTriggers)
         #
@@ -5081,10 +5089,6 @@ if __name__ == '__main__':
     size = screen.size()
     WINW = size.width()
     WINH = size.height()
-    #
-    # number of columns and rows 
-    num_col = int((WINW-M_LEFT-M_RIGHT)/ITEM_WIDTH)
-    num_row = int((WINH-M_TOP-M_BOTTOM - BOTTOM_M)/ITEM_HEIGHT)
     #
     window = MainWin()
     window.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)
