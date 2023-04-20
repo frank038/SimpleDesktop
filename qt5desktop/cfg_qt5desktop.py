@@ -11,18 +11,10 @@ M_TOP=0
 M_RIGHT=0
 # bottom margin
 M_BOTTOM=0
-## other kind of margins
-# item left margin - normally not to be used
-LEFT_M=0
-# item top margin - normally not to be used
-TOP_M=0
-# item right margin - normally not to be used
-RIGHT_M=0
-# item bottom margin - to use to reduce the number of rows from bottom
-BOTTOM_M=0
-##
-# multi items drag picture: 0 use simple icon - 1 enable extended icon
+# multi items drag picture: 0 use simple icon - 1 extended icons - 2 very extended icons
 USE_EXTENDED_DRAG_ICON=1
+# icon size if USE_EXTENDED_DRAG_ICON=1
+mini_icon_size=32
 # x offset of each icon if USE_EXTENDED_DRAG_ICON is enabled
 X_EXTENDED_DRAG_ICON=40
 # y offset of each icon if USE_EXTENDED_DRAG_ICON is enabled
