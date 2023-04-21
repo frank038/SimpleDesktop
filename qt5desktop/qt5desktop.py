@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Version 0.7.7
+# Version 0.8.0
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -1100,6 +1100,9 @@ class MainWin(QWidget):
                 #
                 if (int(tyy)+1) > self.num_row or (int(txx)+1) > self.num_col:
                     data = self.itemSetPos2()
+                    if data == [-1, -1]:
+                        MyDialog("Info", "Too many items.", self)
+                        return
                     ### move the trashcan
                     for row in range(self.model.rowCount()):
                         item = self.model.item(row)
@@ -1126,6 +1129,10 @@ class MainWin(QWidget):
                     item = mmedia[1]
                     # update the trashcan position
                     data = self.itemSetPos2()
+                    if data == [-1, -1]:
+                        MyDialog("Info", "Too many items.", self)
+                        break
+                        return
                     self.fSetPositionForIndex((data[0], data[1]), item.index())
                     reserved_cells.remove([int(txx), int(tyy)])
                     reserved_cells.append(data)
@@ -1152,6 +1159,11 @@ class MainWin(QWidget):
                         if item_name == item_name_display:
                             #
                             data = self.itemSetPos2()
+                            if data == [-1, -1]:
+                                MyDialog("Info", "Too many items.", self)
+                                break
+                                return
+                            #
                             self.fSetPositionForIndex((data[0], data[1]), item.index())
                             items_position.remove(iitem)
                             items_position.append("{}/{}/{}\n".format(data[0], data[1], item_name_display))
