@@ -1,7 +1,7 @@
 # SimpleDesktop
 A simple and lite desktop manager.
 
-Version 0.7.7
+Version 0.8.0
 
 Free to use and modify.
 
@@ -15,7 +15,7 @@ To open the recycle bin, the command have to be written in the file trash_comman
 
 The recycle bin icon can change to reflect its state, empty or not empty. To use a wallpaper, just put an image named wallpaper.jpg at the exactly screen sizes in the program folder.
 
-[Can handle desktop files (programs, directories and files as link). Using desktop files for folders and files don't let user manage directly them. Moreover, more files and folders with the same name can coexist at the same time. Actually they can be created with my program SimpleFM. Accept files from my Qt5archiver program.] Actually no more.
+[Can handle desktop files (programs, directories and files as link). Using desktop files for folders and files don't let user manage directly them. Moreover, more files and folders with the same name can coexist at the same time. Actually they can be created with my programs SimpleFM and qt5simplebar]. Actually only programs. Accept files from my Qt5archiver program.
 
 Limitations: only one item at time can change its position on the desktop. The desktop files cannot be copied, they can only be created and deleted.
 
