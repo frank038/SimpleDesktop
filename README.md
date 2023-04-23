@@ -24,7 +24,8 @@ Needed:
 - pyqt5
 - python3-xdg
 
-For media devices (option):
+For mass storage devices (option):
+- udisk2
 - dbus
 - pyudev
 - notify-send (optional for desktop notification after a device has been inserted and/or ejected)
