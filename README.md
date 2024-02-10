@@ -1,5 +1,5 @@
 # SimpleDesktop
-A simple and lite desktop manager.
+A simple and lite desktop manager (desktop icon manager and other).
 
 
 Free to use and modify.
