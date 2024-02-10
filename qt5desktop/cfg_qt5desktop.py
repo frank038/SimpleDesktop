@@ -74,7 +74,7 @@ USE_TRASH=1
 # recycle bin name
 TRASH_NAME="Recycle Bin"
 # load the media: 0 no - 1 yes
-USE_MEDIA=0
+USE_MEDIA=1
 # use desktop notification throu notify-send after a media has been ejected: 0 not - 1 yes - 2 also after inserted
 USE_MEDIA_NOTIFICATION=0
 # media to skip, comma separated values in the form "/dev/xxx" - not reccomanded for removable ones

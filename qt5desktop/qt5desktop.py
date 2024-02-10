@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Version 0.8.0
+# Version 0.8.1
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -34,33 +34,8 @@ if USE_MEDIA:
     import pyudev
     import dbus
 
-if SCRN_RES:
-    from Xlib.display import Display
-    from Xlib import X
-    display = Display()
-    root = display.screen().root
-    root.change_attributes(event_mask=X.StructureNotifyMask)
-
-# screen resolution changed
-class winThread(QThread):
-    
-    sig = pyqtSignal(list)
-    
-    def __init__(self, display, parent=None):
-        super(winThread, self).__init__(parent)
-        self.display = display
-        self.root = self.display.screen().root
-        #
-        self.win_l = []
-        self.root.change_attributes(event_mask=X.PropertyChangeMask)
-        
-    #
-    def run(self):
-        while True:
-            event = display.next_event()
-            if event.type == X.ConfigureNotify:
-                self.sig.emit([root.get_geometry().width, root.get_geometry().height])
-
+#
+screen = None
 
 class firstMessage(QWidget):
     
@@ -1022,10 +997,10 @@ class MainWin(QWidget):
         self.listview.show()
         ########
         if SCRN_RES:
-            self.mythread = winThread(Display())
-            self.mythread.sig.connect(self.wthreadslot)
-            self.mythread.start()
+            screen.geometryChanged.connect(self.on_screen_changed)
         
+    def on_screen_changed(self, rect_data):
+        self.wthreadslot([rect_data.width(), rect_data.height()])
     
     def wthreadslot(self, data):
         if data:
@@ -4720,8 +4695,8 @@ class TrashModule():
 if __name__ == '__main__':
 
     app = QApplication(sys.argv)
-    #
     screen = app.primaryScreen()
+    #
     size = screen.size()
     WINW = size.width()
     WINH = size.height()
