@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Version 0.8.1
+# Version 0.8.2
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -867,6 +867,7 @@ class MainWin(QWidget):
     def __init__(self, parent=None):
         super(MainWin, self).__init__(parent)
         self.setContentsMargins(0,0,0,0)
+        self.setWindowTitle("qt5desktop-1")
         #
         self.ccount = 0
         # [QPos]
@@ -2699,6 +2700,7 @@ class execfileDialog(QDialog):
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("Info")
         self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(DIALOGWIDTH, 100)
         #
         vbox = QBoxLayout(QBoxLayout.TopToBottom)
@@ -3016,6 +3018,7 @@ class otherApp(QDialog):
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("Other application")
         self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(DIALOGWIDTH,100)
         #
         grid = QGridLayout()
@@ -3066,6 +3069,7 @@ class MyDialogRename2(QDialog):
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("Rename")
         self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(DIALOGWIDTH,300)
         #
         mbox = QBoxLayout(QBoxLayout.TopToBottom)
@@ -3128,6 +3132,7 @@ class MyDialogRename3(QDialog):
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("Set a new name")
         self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(DIALOGWIDTH,300)
         #
         mbox = QBoxLayout(QBoxLayout.TopToBottom)
@@ -3195,6 +3200,7 @@ class propertyDialog(QDialog):
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("Property")
         self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(DIALOGWIDTH, 100)
         #
         vbox = QBoxLayout(QBoxLayout.TopToBottom)
@@ -3721,6 +3727,7 @@ class propertyDialogMulti(QDialog):
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("Property")
         self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(DIALOGWIDTH, 100)
         #
         vbox = QBoxLayout(QBoxLayout.TopToBottom)
@@ -3813,6 +3820,7 @@ class copyItems2():
         self.mydialog.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.mydialog.setWindowTitle("Copying...")
         self.mydialog.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.mydialog.resize(DIALOGWIDTH,300)
         # 
         grid = QGridLayout()
@@ -4388,6 +4396,7 @@ class pasteNmergeDialog(QDialog):
         self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
         self.setWindowTitle("Paste and Merge")
         self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(DIALOGWIDTH, 100)
         #
         vbox = QBoxLayout(QBoxLayout.TopToBottom)
