@@ -16,7 +16,7 @@ The recycle bin icon can change to reflect its state, empty or not empty. To use
 
 Can handle desktop files (programs, directories and files as link). Using desktop files for folders and files don't let user manage directly them. Moreover, more files and folders with the same name can coexist at the same time. Actually they can be created with my programs SimpleFM and qt5simplebar. Actually only programs. Accept files from my Qt5archiver program.
 
-Wallpaper: just put an image named wallpaper in the main directory of this program; it can be changes while this program is been executing by an action in the menu.
+Wallpaper: just put an image named wallpaper (jpg or png) in the main directory of this program; it can be changed while this program is been executing by an action in the menu.
 
 Limitations: only one item at time can change its position on the desktop. The desktop files cannot be copied, they can only be created and deleted.
 
