@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Version 0.8.2
+# Version 0.9.0
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -929,10 +929,7 @@ class MainWin(QWidget):
         self.listview.viewport().installEventFilter(self)
         #
         # the background color or the wallpaper
-        if USE_BACKGROUND_COLOUR == 1 or not os.path.exists("wallpaper.jpg"):
-            self.listview.setStyleSheet("border: 0px; background-color: {};".format(BACKGROUND_COLOR))
-        else:
-            self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper.jpg); background-position: center;")
+        self._set_wallpaper(1)
         #
         if USE_THUMB == 1:
             thread = thumbThread(DDIR, self.listview)
@@ -1000,6 +997,16 @@ class MainWin(QWidget):
         if SCRN_RES:
             screen.geometryChanged.connect(self.on_screen_changed)
         
+    def _set_wallpaper(self, _n):
+        # the background color or the wallpaper
+        if USE_BACKGROUND_COLOUR == 1 or not os.path.exists("wallpaper"):
+            self.listview.setStyleSheet("border: 0px; background-color: {};".format(BACKGROUND_COLOR))
+        else:
+            self.listview.setStyleSheet("border: 0px; background-image: url(wallpaper); background-position: center;")
+        #
+        if _n == 2:
+            self.listviewRestore2()
+    
     def on_screen_changed(self, rect_data):
         self.wthreadslot([rect_data.width(), rect_data.height()])
     
@@ -2286,12 +2293,15 @@ class MainWin(QWidget):
                     ii += 2
             #
             menu.addSeparator()
-            rearrangeAction = QAction("Rearrange", self)
+            rearrangeAction = QAction("Rearrange icons", self)
             rearrangeAction.triggered.connect(lambda:self._arrange_icons(2))
             menu.addAction(rearrangeAction)
             #
             if SHOW_EXIT:
                 menu.addSeparator()
+                backgroundAction = QAction("Update wallpaper", self)
+                backgroundAction.triggered.connect(lambda:self._set_wallpaper(2))
+                menu.addAction(backgroundAction)
                 reloadAction = QAction("Reload", self)
                 reloadAction.triggered.connect(self.restart)
                 menu.addAction(reloadAction)
@@ -2392,6 +2402,11 @@ class MainWin(QWidget):
     
     # self.mediaSelected
     def fejectMediaAction(self, index):
+        # widg = self.sender().associatedWidgets()
+        # for el in widg:
+            # if isinstance(el, QMenu):
+                # el.close()
+                # break
         self.eject_media(index)
     
     
