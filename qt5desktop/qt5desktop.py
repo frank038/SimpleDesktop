@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Version 0.9.1
+# Version 0.9.2
 
 from PyQt5.QtCore import (pyqtSlot,QProcess, QCoreApplication, QTimer, QModelIndex,QFileSystemWatcher,QEvent,QObject,QUrl,QFileInfo,QRect,QStorageInfo,QMimeData,QMimeDatabase,QFile,QThread,Qt,pyqtSignal,QSize,QMargins,QDir,QByteArray,QItemSelection,QItemSelectionModel,QPoint)
 from PyQt5.QtWidgets import (QStyleFactory,QTreeWidget,QTreeWidgetItem,QLayout,QHeaderView,QTreeView,QSpacerItem,QScrollArea,QTextEdit,QSizePolicy,qApp,QBoxLayout,QLabel,QPushButton,QDesktopWidget,QApplication,QDialog,QGridLayout,QMessageBox,QLineEdit,QTabWidget,QWidget,QGroupBox,QComboBox,QCheckBox,QProgressBar,QListView,QFileSystemModel,QItemDelegate,QStyle,QFileIconProvider,QAbstractItemView,QFormLayout,QAction,QMenu)
@@ -991,7 +991,7 @@ class MainWin(QWidget):
             # the devices at program launch
             self.on_media_detected()
         # 
-        time.sleep(1)
+        time.sleep(0.3)
         self.listview.show()
         ########
         if SCRN_RES:
@@ -1273,9 +1273,11 @@ class MainWin(QWidget):
     
     # remove the device from the model and view
     def removeMedia(self, ddevice):
-        time.sleep(1)
+        time.sleep(0.1)
         for row in range(self.model.rowCount()):
             iitem = self.model.item(row)
+            if iitem == None:
+                continue
             if iitem.data(Qt.UserRole+1) == "media":
                 if iitem.data(Qt.UserRole+2) == ddevice:
                     item_idx = None
@@ -1289,9 +1291,9 @@ class MainWin(QWidget):
                     if ret:
                         # remove the device from the reserved cells
                         global reserved_cells
-                        reserved_cells.remove(self.media_added[mm][0])
+                        reserved_cells.remove(self.media_added[iitem_idx][0])
                         # remove the device from the list
-                        del self.media_added[mm]
+                        del self.media_added[iitem_idx]
                         # restore the positions
                         self.listviewRestore2()
                         # desktop notification
@@ -2694,7 +2696,7 @@ class MainWin(QWidget):
     def winClose(self):
         global stopCD
         stopCD = 1
-        time.sleep(1)
+        time.sleep(0.1)
         qApp.quit()
 
     def restart(self):
@@ -3954,7 +3956,7 @@ class copyThread2(QThread):
             self.reqNewNm = l[1]
 
     def run(self):
-        time.sleep(1)
+        time.sleep(0.1)
         self.item_op()
 
     
