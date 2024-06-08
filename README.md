@@ -4,6 +4,8 @@ A simple and lite desktop manager (desktop icon manager and other).
 
 Free to use and modify.
 
+This application has been integrated into the program qt5desktop2, along with qt5simpledock. Both no more will be developed for bug fixing nor features.
+
 Create the empty file "items_position" in the program folder or use the tar packed version.
 
 Personalizations in the config file.
